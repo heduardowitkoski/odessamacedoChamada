@@ -38,7 +38,7 @@ export default function PortalScreen() {
   const filters = ["Todas", "Com vagas", "Turma cheia"];
 
   useEffect(() => {
-    fetch("http://localhost:3000/turmas")
+    fetch("https://odessamacedochamada.onrender.com/turmas")
       .then((res) => res.json())
       .then((data) => {
         setTurmasDb(data);

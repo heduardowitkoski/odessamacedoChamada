@@ -17,14 +17,14 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   const fetchAlunos = () => {
-    fetch("http://localhost:3000/alunos")
+    fetch("https://odessamacedochamada.onrender.com/alunos")
       .then(res => res.json())
       .then(data => setAlunosDb(data))
       .catch(err => console.error(err));
   };
 
   const fetchTurmas = () => {
-    fetch("http://localhost:3000/turmas")
+    fetch("https://odessamacedochamada.onrender.com/turmas")
       .then(res => res.json())
       .then(data => setTurmasDb(data))
       .catch(err => console.error(err));
@@ -61,7 +61,7 @@ export default function AdminDashboard() {
 
   const handleCall = async (aluno: any) => {
     try {
-      const res = await fetch(`http://localhost:3000/alunos/${aluno.id}/status`, {
+      const res = await fetch(`https://odessamacedochamada.onrender.com/alunos/${aluno.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "Ativo", turma_id: aluno.turma_id })
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
   const handleCancel = async (aluno: any) => {
     if(!window.confirm(`Deseja realmente cancelar a matrícula de ${aluno.aluno_nome}?`)) return;
     try {
-      const res = await fetch(`http://localhost:3000/alunos/${aluno.id}/status`, {
+      const res = await fetch(`https://odessamacedochamada.onrender.com/alunos/${aluno.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "Inativo", turma_id: aluno.turma_id })
