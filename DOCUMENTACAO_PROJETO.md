@@ -3,7 +3,7 @@
 ## 1. Arquitetura Tecnológica Implementada
 
 - **Front-end:** React (v19) + TypeScript + Vite + Vanilla CSS. Aplicação SPA (Single Page Application) responsiva, estruturada em componentes modulares e páginas de navegação.
-- **Back-end:** NestJS (Node.js com TypeScript). API RESTful modularizada (`AlunosModule`, `TurmasModule` e `SupabaseModule`) com suporte a CORS.
+- **Back-end:** NestJS (Node.js com TypeScript). API RESTful modularizada (`AlunosModule`, `TurmasModule` e `SupabaseModule`).
 - **Banco de Dados e Autenticação:** Supabase (PostgreSQL para dados relacionais das tabelas `alunos` e `turmas`, e Supabase Auth para autenticação de gestores e professores).
 
 ---
@@ -33,10 +33,6 @@
 ---
 
 ### 2.3. Marco 3: Gestão, Qualidade e Implantação
-
-- **Segurança de Dados e RLS (Row-Level Security)**
-  - **Status:** Concluído.
-  - **Detalhamento:** Configuração das tabelas no Supabase com políticas RLS para proteção dos dados pessoais de menores de idade e responsáveis segundo a LGPD.
 
 - **Ferramentas de Exportação e Relatórios Avançados**
   - **Status:** Pendente.
