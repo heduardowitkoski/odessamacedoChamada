@@ -14,12 +14,12 @@ export class FrequenciasService {
   async buscarPorTurmaEData(turma_id: string, dataStr: string) {
     const supabase = this.supabaseService.getClient();
 
-    // 1. Buscar alunos ativos da turma
+    // 1. Buscar alunos inscritos/ativos da turma (não inativos)
     const { data: alunos, error: alunosError } = await supabase
       .from('alunos')
       .select('*')
       .eq('turma_id', turma_id)
-      .ilike('status', 'ativo')
+      .neq('status', 'Inativo')
       .order('aluno_nome', { ascending: true });
 
     if (alunosError) {
