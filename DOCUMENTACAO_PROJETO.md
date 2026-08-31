@@ -36,9 +36,9 @@
 
 ### 2.3. Marco 3: Gestão, Qualidade e Implantação
 
-- **Segurança de Dados e RLS (Row-Level Security)**
+- **Segurança de Dados**
   - **Status:** Implementado (Pendente de Validação com Stakeholder).
-  - **Detalhamento:** Configuração das tabelas no Supabase (incluindo `alunos`, `turmas` e `frequencias`) com políticas RLS para proteção dos dados pessoais de menores de idade e responsáveis segundo a LGPD. Requer validação técnica final dos perfis de acesso.
+  - **Detalhamento:** Configuração das tabelas no Supabase (incluindo `alunos`, `turmas` e `frequencias`) com políticas para proteção dos dados pessoais de menores de idade e responsáveis segundo a LGPD. Requer validação técnica final dos perfis de acesso.
 
 - **Ferramentas de Exportação e Relatórios Avançados**
   - **Status:** Pendente.
