@@ -29,7 +29,7 @@
   - **Detalhamento:** 
     - *Implementado:* Autenticação de gestores e professores via Supabase Auth (`/login`), painel de controle (`/admin`) com separação em abas por status (`Ativos`, `Fila de Espera`, `Inativos`), visualização detalhada das fichas dos alunos e contatos dos responsáveis.
     - *Implementado:* Módulo de Registro Diário de Chamada/Frequência por aula (`FrequenciasModule` + interface com seletores de turma e data, alternância de status Presente/Falta/Justificada, lançamento em lote e observações).
-    - *Implementado:* Regra automatizada e painel visual de **Alertas de Absenteísmo (3+ faltas consecutivas)** com atalhos para contatar responsável ou inativar aluno liberando vaga para a fila de espera.
+    - *Implementado:* Regra automatizada e painel visual de **Alertas de Ausência (3+ faltas consecutivas)** com atalhos para contatar responsável ou inativar aluno liberando vaga para a fila de espera.
     - *Pendente:* Validação e homologação do fluxo de chamada diária em ambiente real com os professores e a equipe pedagógica do CDE.
 
 ---
