@@ -19,7 +19,7 @@ export class FrequenciasService {
       .from('alunos')
       .select('*')
       .eq('turma_id', turma_id)
-      .eq('status', 'Ativo')
+      .ilike('status', 'ativo')
       .order('aluno_nome', { ascending: true });
 
     if (alunosError) {
@@ -89,7 +89,7 @@ export class FrequenciasService {
     const { data: alunos, error: alunosError } = await supabase
       .from('alunos')
       .select('*, turmas(*)')
-      .eq('status', 'Ativo');
+      .ilike('status', 'ativo');
 
     if (alunosError) {
       throw new InternalServerErrorException("Erro ao buscar alunos para alertas: " + alunosError.message);

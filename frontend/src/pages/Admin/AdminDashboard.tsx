@@ -80,10 +80,10 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (selectedTurmaFreq && selectedDataFreq) {
+    if (activeMenu === "Frequência" && selectedTurmaFreq && selectedDataFreq) {
       fetchFrequencia(selectedTurmaFreq, selectedDataFreq);
     }
-  }, [selectedTurmaFreq, selectedDataFreq]);
+  }, [activeMenu, selectedTurmaFreq, selectedDataFreq]);
 
   const alunosAtivos = alunosDb.filter(a => a.status === 'Ativo');
   const alunosFila = alunosDb.filter(a => a.status === 'Fila');
