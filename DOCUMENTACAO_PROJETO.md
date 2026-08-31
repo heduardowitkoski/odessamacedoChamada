@@ -24,15 +24,20 @@
 
 ### 2.2. Marco 2: Engajamento Familiar e Gestão Escolar
 
-- **Painel Administrativo com Autenticação**
-  - **Status:** Parcialmente Concluído.
+- **Painel Administrativo com Autenticação e Registro de Frequência**
+  - **Status:** Concluído.
   - **Detalhamento:** 
     - *Implementado:* Autenticação de gestores e professores via Supabase Auth (`/login`), painel de controle (`/admin`) com separação em abas por status (`Ativos`, `Fila de Espera`, `Inativos`), visualização detalhada das fichas dos alunos e contatos dos responsáveis.
-    - *Pendente:* Módulo de registro diário de chamada/frequência por aula e regra automatizada de sugestão de substituição por limite de faltas consecutivas.
+    - *Implementado:* Módulo de Registro Diário de Chamada/Frequência por aula (`FrequenciasModule` + interface com seletores de turma e data, alternância de status Presente/Falta/Justificada, lançamento em lote e observações).
+    - *Implementado:* Regra automatizada e painel visual de **Alertas de Absenteísmo (3+ faltas consecutivas)** com atalhos para contatar responsável ou inativar aluno liberando vaga para a fila de espera.
 
 ---
 
 ### 2.3. Marco 3: Gestão, Qualidade e Implantação
+
+- **Segurança de Dados e RLS (Row-Level Security)**
+  - **Status:** Concluído.
+  - **Detalhamento:** Configuração das tabelas no Supabase (incluindo `frequencias`) com políticas RLS para proteção dos dados pessoais de menores de idade e responsáveis segundo a LGPD.
 
 - **Ferramentas de Exportação e Relatórios Avançados**
   - **Status:** Pendente.
@@ -50,12 +55,8 @@
 
 ## 3. Resumo das Tarefas Pendentes para Conclusão do Projeto
 
-1. **Implementar Módulo de Registro Diário de Frequência:**
-   - Interface para chamada rápida pelos professores em sala de aula.
-   - Cálculo e alerta automático de faltas consecutivas com sinalização de vaga ociosa.
-
-2. **Desenvolver Exportação de Relatórios Administrativos:**
+1. **Desenvolver Exportação de Relatórios Administrativos:**
    - Relatórios em formato CSV/PDF com estatísticas de assiduidade e lista da fila de espera.
 
-3. **Módulo de Feedback e Homologação:**
+2. **Módulo de Feedback e Homologação:**
    - Formulário de avaliação da comunidade e treinamento final da equipe do CDE Odessa Macedo.
