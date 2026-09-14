@@ -24,6 +24,11 @@ export default function AdminDashboard() {
   const [alertasFaltas, setAlertasFaltas] = useState<any[]>([]);
   const [savingFreq, setSavingFreq] = useState<boolean>(false);
 
+  // Estados para Criar Nova Turma
+  const [showModalNovaTurma, setShowModalNovaTurma] = useState(false);
+  const [novaTurma, setNovaTurma] = useState({ nome: '', turno: '', capacidade: 15 });
+  const [savingTurma, setSavingTurma] = useState(false);
+
   const navigate = useNavigate();
 
   const fetchAlunos = () => {
@@ -206,6 +211,40 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCreateTurma = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!novaTurma.nome.trim() || !novaTurma.turno.trim()) {
+      alert("Por favor, preencha o nome da turma e o turno.");
+      return;
+    }
+    setSavingTurma(true);
+    try {
+      const res = await fetch(`${API_BASE}/turmas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: novaTurma.nome.trim(),
+          turno: novaTurma.turno.trim(),
+          capacidade: Number(novaTurma.capacidade) || 15,
+        }),
+      });
+
+      if (res.ok) {
+        alert("Nova turma criada com sucesso!");
+        setShowModalNovaTurma(false);
+        setNovaTurma({ nome: '', turno: '', capacidade: 15 });
+        fetchTurmas();
+      } else {
+        const err = await res.json();
+        alert("Erro ao criar turma: " + (err.message || "Erro desconhecido"));
+      }
+    } catch (e) {
+      alert("Erro de conexão ao criar turma.");
+    } finally {
+      setSavingTurma(false);
+    }
+  };
+
   const menuItems = [
     { icon: <Home size={17} />, label: "Dashboard" },
     { icon: <Users size={17} />, label: "Alunos", badge: alunosAtivos.length },
@@ -289,7 +328,11 @@ export default function AdminDashboard() {
         <header className="bg-white border-b border-amber-100 h-16 flex items-center px-8 gap-4 flex-shrink-0 shadow-sm">
           <div className="flex-1">
             <h1 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-lg">
-              {activeMenu === "Frequência" ? "Registro de Frequência e Chamada Diária" : "Gestão de Alunos · Aulas de Desenho"}
+              {activeMenu === "Frequência" 
+                ? "Registro de Frequência e Chamada Diária" 
+                : activeMenu === "Turmas" 
+                ? "Gestão de Turmas e Vagas" 
+                : "Gestão de Alunos · Aulas de Desenho"}
             </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -302,9 +345,18 @@ export default function AdminDashboard() {
             <button className="flex items-center gap-2 text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50">
               <Download size={15} /> Exportar
             </button>
-            <Link to="/inscrever" className="flex items-center gap-2 text-sm text-white bg-amber-500 font-medium rounded-xl px-3 py-2 hover:bg-amber-600 transition-colors">
-              <Plus size={15} /> Nova inscrição
-            </Link>
+            {activeMenu === "Turmas" ? (
+              <button 
+                onClick={() => setShowModalNovaTurma(true)} 
+                className="flex items-center gap-2 text-sm text-white bg-amber-500 font-bold rounded-xl px-3.5 py-2 hover:bg-amber-600 transition-colors shadow-xs cursor-pointer"
+              >
+                <Plus size={15} /> Nova turma
+              </button>
+            ) : (
+              <Link to="/inscrever" className="flex items-center gap-2 text-sm text-white bg-amber-500 font-medium rounded-xl px-3 py-2 hover:bg-amber-600 transition-colors">
+                <Plus size={15} /> Nova inscrição
+              </Link>
+            )}
           </div>
         </header>
 
@@ -322,7 +374,69 @@ export default function AdminDashboard() {
             ))}
           </div>
 
-          {activeMenu === "Frequência" ? (
+          {activeMenu === "Turmas" ? (
+            /* --- MÓDULO DE GESTÃO DE TURMAS --- */
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                  <div>
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
+                      Turmas Cadastradas ({turmasDb.length})
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      Gerencie as turmas disponíveis para inscrição e acompanhe a lotação.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowModalNovaTurma(true)}
+                    className="text-xs text-white bg-amber-500 font-bold px-4 py-2.5 rounded-xl hover:bg-amber-600 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Plus size={15} /> Nova Turma
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {turmasDb.map((turma) => {
+                    const alunosAtivosTurma = alunosDb.filter(a => a.turma_id === turma.id && a.status === 'Ativo');
+                    const vagas = turma.capacidade;
+
+                    return (
+                      <div key={turma.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs hover:border-amber-300 transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                              <BookOpen size={18} />
+                            </div>
+                            {vagas > 0 ? (
+                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                Há vagas
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full">
+                                Turma Cheia
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300] mb-1">
+                            {turma.nome}
+                          </h3>
+                          <p className="text-xs text-amber-800 font-semibold mb-4">
+                            {turma.turno}
+                          </p>
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                          <span>Alunos ativos: <strong className="text-gray-900">{alunosAtivosTurma.length}</strong></span>
+                          <span>Capacidade total: <strong className="text-gray-900">{turma.capacidade}</strong></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : activeMenu === "Frequência" ? (
             /* --- MÓDULO DE FREQUÊNCIA --- */
             <div className="space-y-6">
               {/* Alertas de Absenteísmo */}
@@ -717,6 +831,92 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Modal Criar Nova Turma */}
+      {showModalNovaTurma && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-amber-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center">
+                  <BookOpen size={16} />
+                </div>
+                <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                  Criar Nova Turma
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowModalNovaTurma(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTurma} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Nome da Turma *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Turma Infantil C - 6 a 8 anos"
+                  value={novaTurma.nome}
+                  onChange={(e) => setNovaTurma({ ...novaTurma, nome: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Turno e Horário *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Segunda · 14h às 15h30"
+                  value={novaTurma.turno}
+                  onChange={(e) => setNovaTurma({ ...novaTurma, turno: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Capacidade Total de Vagas *
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  required
+                  value={novaTurma.capacidade}
+                  onChange={(e) => setNovaTurma({ ...novaTurma, capacidade: Number(e.target.value) })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowModalNovaTurma(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingTurma}
+                  className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {savingTurma ? "Criando..." : "Criar Turma"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
