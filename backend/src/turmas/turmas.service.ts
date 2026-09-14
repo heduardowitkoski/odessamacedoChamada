@@ -1,33 +1,19 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { Injectable } from '@nestjs/common';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class TurmasService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async findAll() {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('turmas')
-      .select('*')
-      .order('created_at', { ascending: false });
+    return this.db.getTurmas();
+  }
 
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-    return data;
+  async findOne(id: string) {
+    return this.db.getTurmaById(id);
   }
 
   async create(createTurmaDto: { nome: string; turno: string; capacidade: number }) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('turmas')
-      .insert([createTurmaDto])
-      .select();
-
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-    return data;
+    return this.db.createTurma(createTurmaDto);
   }
 }
