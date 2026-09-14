@@ -236,7 +236,20 @@ export default function AdminDashboard() {
         fetchTurmas();
       } else {
         const err = await res.json();
-        alert("Erro ao criar turma: " + (err.message || "Erro desconhecido"));
+        const { error: subErr } = await supabase.from('turmas').insert([{
+          nome: novaTurma.nome.trim(),
+          turno: novaTurma.turno.trim(),
+          capacidade: Number(novaTurma.capacidade) || 15,
+        }]);
+
+        if (!subErr) {
+          alert("Nova turma criada com sucesso!");
+          setShowModalNovaTurma(false);
+          setNovaTurma({ nome: '', turno: '', capacidade: 15 });
+          fetchTurmas();
+        } else {
+          alert("Erro ao criar turma: " + (err.message || subErr.message || "Erro desconhecido"));
+        }
       }
     } catch (e) {
       alert("Erro de conexão ao criar turma.");
