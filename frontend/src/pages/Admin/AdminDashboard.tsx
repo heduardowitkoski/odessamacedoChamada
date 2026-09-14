@@ -706,6 +706,47 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* === MENU: RELATÓRIOS === */}
+          {activeMenu === "Relatórios" && (
+            <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6 space-y-6">
+              <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base">
+                Resumo Geral de Ocupação por Turma
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {(Array.isArray(turmasDb) ? turmasDb : []).map((t) => {
+                  const matriculados = (Array.isArray(alunosDb) ? alunosDb : []).filter(a => a.turma_id === t.id && a.status === 'Ativo').length;
+                  const fila = (Array.isArray(alunosDb) ? alunosDb : []).filter(a => a.turma_id === t.id && a.status === 'Fila').length;
+                  return (
+                    <div key={t.id} className="p-4 rounded-xl border border-amber-100 bg-amber-50/30">
+                      <p className="font-bold text-sm text-[#1C1300] mb-1">{t.nome}</p>
+                      <p className="text-xs text-gray-500 mb-3">Turno: {t.turno}</p>
+                      <div className="space-y-1.5 text-xs text-gray-700">
+                        <div className="flex justify-between"><span>Matriculados:</span> <strong>{matriculados}</strong></div>
+                        <div className="flex justify-between"><span>Fila de espera:</span> <strong>{fila}</strong></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* === MENU: CONFIGURAÇÕES === */}
+          {activeMenu === "Configurações" && (
+            <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6 space-y-4">
+              <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base">
+                Configurações do Sistema
+              </h2>
+              <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-2 text-xs text-gray-700">
+                <p><strong>Unidade:</strong> Centro de Desenvolvimento da Expressão Odessa Macedo</p>
+                <p><strong>Órgão:</strong> Secretaria Municipal de Cultura de Bagé / RS</p>
+                <p><strong>Conta conectada:</strong> Sec. de Cultura (teste@gmail.com)</p>
+                <p><strong>API Backend:</strong> {API_BASE}</p>
+                <p><strong>Banco de Dados:</strong> Supabase PostgreSQL</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
