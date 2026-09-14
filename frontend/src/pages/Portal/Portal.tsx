@@ -1,58 +1,66 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, Pencil, BookOpen, ChevronRight, Award, Palette, Sparkles } from "lucide-react";
-import { TURMAS as MOCK_TURMAS, COLOR_MAP } from "../../lib/mock";
+import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award } from "lucide-react";
+import { SpotBar } from "../../components/ui/SpotBar";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
-
+// Interface baseada no banco de dados e UI
 interface Turma {
   id: string;
-  nome?: string;
-  label?: string;
-  turno?: string;
-  faixa?: string;
-  horario?: string;
-  descricao?: string;
-  color?: string;
+  nome: string;
+  turno: string;
+  capacidade: number;
 }
 
+// Simulando propriedades que na UI antiga eram "hardcoded" e que ainda não temos no DB real
+// Futuramente o backend também retornará essas infos (faixa, descricão, etc)
+const MOCK_EXTRAS = {
+  faixa: "Geral",
+  descricao: "Turma de artes do centro Odessa Macedo",
+};
+
+// cores por turma
+const COLOR_MAP: Record<string, { accent: string; badge: string; badgeText: string; btnFull: string; btnOpen: string; dot: string }> = {
+  yellow:  { accent: "border-yellow-300", badge: "bg-yellow-100", badgeText: "text-yellow-800", btnFull: "bg-amber-500 hover:bg-amber-600",   btnOpen: "bg-yellow-500 hover:bg-yellow-600",  dot: "bg-yellow-400" },
+  orange:  { accent: "border-orange-300", badge: "bg-orange-100", badgeText: "text-orange-800", btnFull: "bg-orange-500 hover:bg-orange-600",  btnOpen: "bg-orange-500 hover:bg-orange-600",  dot: "bg-orange-400" },
+  teal:    { accent: "border-teal-300",   badge: "bg-teal-100",   badgeText: "text-teal-800",   btnFull: "bg-amber-500 hover:bg-amber-600",   btnOpen: "bg-teal-500 hover:bg-teal-600",     dot: "bg-teal-400"   },
+  blue:    { accent: "border-blue-300",   badge: "bg-blue-100",   badgeText: "text-blue-800",   btnFull: "bg-amber-500 hover:bg-amber-600",   btnOpen: "bg-blue-500 hover:bg-blue-600",     dot: "bg-blue-400"   },
+  purple:  { accent: "border-purple-300", badge: "bg-purple-100", badgeText: "text-purple-800", btnFull: "bg-amber-500 hover:bg-amber-600",   btnOpen: "bg-purple-500 hover:bg-purple-600", dot: "bg-purple-400" },
+  green:   { accent: "border-green-300",  badge: "bg-green-100",  badgeText: "text-green-800",  btnFull: "bg-amber-500 hover:bg-amber-600",   btnOpen: "bg-green-500 hover:bg-green-600",   dot: "bg-green-400"  },
+  amber:   { accent: "border-amber-300",  badge: "bg-amber-100",  badgeText: "text-amber-800",  btnFull: "bg-amber-500 hover:bg-amber-600",   btnOpen: "bg-amber-500 hover:bg-amber-600",   dot: "bg-amber-400"  },
+};
+
 export default function PortalScreen() {
+  const [activeFilter, setActiveFilter] = useState("Todas");
   const [search, setSearch] = useState("");
   const [turmasDb, setTurmasDb] = useState<Turma[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const filters = ["Todas", "Com vagas", "Turma cheia"];
 
   useEffect(() => {
-    fetch(`${API_BASE}/turmas`)
+    fetch("https://odessamacedochamada.onrender.com/turmas")
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setTurmasDb(data);
-        } else {
-          setTurmasDb(MOCK_TURMAS as any[]);
-        }
+        setTurmasDb(data);
+        setLoading(false);
       })
       .catch((err) => {
-        console.error("Erro ao buscar turmas:", err);
-        setTurmasDb(MOCK_TURMAS as any[]);
+        console.error("Erro ao buscar turmas", err);
+        setLoading(false);
       });
   }, []);
 
-  const listaTurmas = (turmasDb.length > 0 ? turmasDb : MOCK_TURMAS).map((t: any, index) => {
-    const defaultColors = ["yellow", "orange", "teal", "blue", "purple", "green", "amber"];
-    return {
-      id: t.id || `turma-${index}`,
-      nome: t.nome || t.label || `Turma ${index + 1}`,
-      turno: t.turno || t.horario || "Geral",
-      faixa: t.faixa || "Todas as idades",
-      descricao: t.descricao || "Aulas práticas de desenho e artes visuais no Centro Odessa Macedo.",
-      color: t.color || defaultColors[index % defaultColors.length],
-    };
-  });
-
-  const displayed = listaTurmas.filter((t) =>
+  const displayed = turmasDb.filter((t) => {
+    // Por enquanto simulamos os spots vazios como se sempre tivesse vaga, já que a API ainda não conta alunos
+    const spots = t.capacidade; 
+    
+    if (activeFilter === "Com vagas") return spots > 0;
+    if (activeFilter === "Turma cheia") return spots === 0;
+    return true;
+  }).filter((t) =>
     search === "" ||
     t.nome.toLowerCase().includes(search.toLowerCase()) ||
-    t.turno.toLowerCase().includes(search.toLowerCase()) ||
-    t.descricao.toLowerCase().includes(search.toLowerCase())
+    t.turno.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -79,157 +87,161 @@ export default function PortalScreen() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link to="/inscrever" className="px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors">
-              Fazer Inscrição
-            </Link>
+            <button className="px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors">
+              Verificar posição na fila
+            </button>
             <Link to="/admin" className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm">
-              Área Administrativa
+              Área administrativa
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero Banner: Fundo Marrom Escuro Sofisticado, Linhas Diagonais Douradas em CSS, Branco + Dourado */}
-      <section
-        className="relative overflow-hidden text-white py-14 px-8 border-b border-amber-500/40 shadow-xl"
-        style={{
-          backgroundColor: "#160D05",
-          backgroundImage: `
-            radial-gradient(circle at 20% 50%, rgba(67, 36, 12, 0.5) 0%, rgba(22, 13, 5, 0.95) 75%),
-            repeating-linear-gradient(45deg, rgba(217, 119, 6, 0.07) 0px, rgba(217, 119, 6, 0.07) 1px, transparent 1px, transparent 24px),
-            repeating-linear-gradient(-45deg, rgba(217, 119, 6, 0.07) 0px, rgba(217, 119, 6, 0.07) 1px, transparent 1px, transparent 24px)
-          `,
-        }}
-      >
-        {/* Padrão Geométrico de Linhas e Contornos Dourados em Losango */}
-        <div className="absolute inset-0 pointer-events-none opacity-25">
-          <div className="absolute -top-16 -right-16 w-80 h-80 border-2 border-amber-400 rotate-45 rounded-3xl" />
-          <div className="absolute top-1/2 -right-8 w-60 h-60 border border-amber-300 rotate-45 rounded-2xl" />
-          <div className="absolute -bottom-20 left-1/4 w-96 h-96 border border-amber-400/40 rotate-45 rounded-3xl" />
-          <div className="absolute top-4 left-1/2 w-40 h-40 border border-amber-300/30 rotate-45 rounded-xl" />
-        </div>
-
-        <div className="max-w-[1440px] mx-auto relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
-          <div className="max-w-2xl">
-            {/* Badge Superior: Borda dourada, texto dourado, fundo marrom translúcido */}
-            <div className="inline-flex items-center gap-2 bg-[#261508]/80 border border-amber-400/70 backdrop-blur-sm rounded-full px-4 py-1.5 text-xs font-semibold mb-4 text-amber-300 shadow-sm">
-              <Award size={14} className="text-amber-400" />
-              <span>Bagé/RS · Secretaria Municipal de Cultura</span>
-            </div>
-
-            {/* Título: 'Aulas Gratuitas de' em Branco e 'Desenho Artístico' em Dourado */}
-            <h1 className="font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-3xl md:text-4xl lg:text-5xl leading-tight mb-4 tracking-tight">
-              <span className="text-white block">Aulas Gratuitas de</span>
-              <span className="text-amber-400 block mt-1">Desenho Artístico</span>
+      {/* Hero */}
+      <section className="bg-gradient-to-br from-[#1C1300] to-[#3D2800] text-white overflow-hidden relative">
+        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
+          backgroundImage: "repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)",
+          backgroundSize: "30px 30px"
+        }} />
+        <div className="max-w-[1440px] mx-auto px-8 py-16 flex flex-col md:flex-row items-center gap-12 relative">
+          <div className="flex-1">
+            <span className="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/30 text-amber-200 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
+              <Award size={12} /> Programa Cultural da Prefeitura de Bagé
+            </span>
+            <h1 className="font-['Plus_Jakarta_Sans',sans-serif] text-4xl md:text-5xl font-extrabold leading-tight mb-4">
+              Aulas de Desenho<br />
+              <span className="text-amber-300">para todas as idades</span>
             </h1>
-
-            {/* Descrição: Off-white adaptado ao novo fundo marrom escuro */}
-            <p className="text-amber-100/90 text-base md:text-lg leading-relaxed mb-8 max-w-xl font-medium">
-              Inscrições abertas para crianças, jovens, adultos e melhor idade. Turmas com acompanhamento pedagógico e material fornecido pelo Centro.
+            <p className="text-amber-100/80 text-base max-w-lg mb-8 leading-relaxed">
+              Turmas organizadas por faixa etária, do Infantil ao Melhor Idade. Verifique as vagas disponíveis e faça sua inscrição ou entre na fila de espera.
             </p>
-
-            {/* Botões: Mantendo rotas, ações e textos originais */}
-            <div className="flex flex-wrap items-center gap-4">
-              <Link
-                to="/inscrever"
-                className="px-6 py-3.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-[#1C1300] font-extrabold rounded-xl text-sm hover:from-amber-300 hover:to-yellow-400 transition-all shadow-lg shadow-amber-950/40 transform hover:-translate-y-0.5"
-              >
-                Quero me inscrever agora
+            <div className="flex gap-3 flex-wrap">
+              <Link to="/inscrever" className="px-6 py-3 bg-amber-400 text-[#1C1300] text-sm font-bold rounded-xl hover:bg-amber-300 transition-colors shadow-lg flex items-center gap-2">
+                <Plus size={16} /> Inscrever-se agora
               </Link>
-              <a
-                href="#turmas"
-                className="px-6 py-3.5 bg-[#261508]/60 border border-amber-400/50 text-white font-semibold rounded-xl text-sm hover:bg-[#381F0C]/80 hover:border-amber-400 transition-all backdrop-blur-xs"
-              >
-                Ver todas as turmas
-              </a>
-            </div>
-          </div>
-
-          {/* Elemento Decorativo à Direita: Moldura em Losango Dourada e Fundo Marrom Translúcido */}
-          <div className="relative hidden md:flex items-center justify-center p-8">
-            {/* Losango Externo com Borda Dourada */}
-            <div className="w-56 h-56 border-2 border-amber-400/80 rotate-45 rounded-3xl flex items-center justify-center bg-gradient-to-br from-[#2D1A0A]/90 to-[#180E05]/95 shadow-2xl shadow-black/80 backdrop-blur-md">
-              {/* Losango Interno com Contorno Dourado */}
-              <div className="w-44 h-44 border border-amber-400/50 rounded-2xl flex items-center justify-center bg-[#231407]/80">
-                {/* Ícone e Conteúdo Central */}
-                <div className="-rotate-45 flex flex-col items-center text-center p-2">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-400 flex items-center justify-center text-[#1C1300] mb-2 shadow-lg">
-                    <Palette size={28} className="text-[#1C1300]" />
-                  </div>
-                  <span className="font-bold text-xs text-white uppercase tracking-wider block">CDE Odessa</span>
-                  <span className="text-[11px] text-amber-300 font-semibold flex items-center gap-1 justify-center">
-                    <Sparkles size={11} className="text-amber-400" /> 100% Gratuito
-                  </span>
-                </div>
-              </div>
+              <button className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2">
+                <ListOrdered size={16} /> Ver fila de espera
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Main Content */}
-      <main id="turmas" className="max-w-[1440px] mx-auto px-8 py-10">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-2xl text-[#1C1300]">Turmas Disponíveis</h2>
-            <p className="text-gray-500 text-sm mt-0.5">Encontre a turma ideal de acordo com a idade e horário.</p>
-          </div>
-
-          <div className="relative w-full md:w-72">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Filters */}
+      <section className="max-w-[1440px] mx-auto px-8 py-6">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
             <input
               type="text"
-              placeholder="Buscar por turma ou horário..."
+              placeholder="Buscar turma ou turno..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all shadow-xs"
+              className="h-11 pl-10 pr-4 rounded-xl border border-amber-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white w-64"
             />
           </div>
-        </div>
-
-        {/* Grid de Turmas sem contadores de alunos ou vagas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displayed.map((t) => {
-            const c = COLOR_MAP[t.color || "amber"] || COLOR_MAP.amber;
-
-            return (
-              <div
-                key={t.id}
-                className={`bg-white rounded-2xl border-2 ${c.accent} shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden`}
+          <div className="flex items-center gap-2">
+            <Filter size={14} className="text-gray-400" />
+            {filters.map((f) => (
+              <button
+                key={f}
+                onClick={() => setActiveFilter(f)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  activeFilter === f
+                    ? "bg-amber-500 text-white shadow-md"
+                    : "bg-white text-gray-600 border border-gray-200 hover:border-amber-300 hover:text-amber-700"
+                }`}
               >
-                <div className="p-6">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${c.badge} ${c.badgeText}`}>
-                      {t.turno}
-                    </span>
-                    <span className="text-xs font-semibold text-gray-400">{t.faixa}</span>
-                  </div>
-
-                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300] mb-2">{t.nome}</h3>
-                  <p className="text-gray-500 text-xs leading-relaxed">{t.descricao}</p>
-                </div>
-
-                <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs text-gray-500 font-medium">Inscrição gratuita</span>
-                  <Link
-                    to="/inscrever"
-                    className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-xs ${c.btnOpen}`}
-                  >
-                    Inscrever-se <ChevronRight size={14} />
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {displayed.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-            <BookOpen size={36} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500 font-semibold text-sm">Nenhuma turma encontrada</p>
-            <p className="text-gray-400 text-xs mt-1">Tente ajustar seus termos de busca.</p>
+                {f}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+      </section>
+
+      {/* Turmas grid */}
+      <main className="max-w-[1440px] mx-auto px-8 pb-16">
+        <div className="flex gap-8">
+          <div className="flex-1">
+            <p className="text-sm text-gray-400 mb-5">
+              <span className="font-semibold text-gray-700">{displayed.length}</span> turmas encontradas
+            </p>
+            
+            {loading ? (
+               <div className="text-gray-500 py-10 text-center animate-pulse">Carregando turmas do banco de dados...</div>
+            ) : displayed.length === 0 ? (
+               <div className="text-gray-500 py-10 text-center bg-white rounded-2xl border border-dashed border-gray-300">Nenhuma turma encontrada. Cadastre no painel admin!</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {displayed.map((turma) => {
+                  const getColor = (nome: string) => {
+                    if (nome.includes("Infantil A")) return "yellow";
+                    if (nome.includes("Infantil B")) return "orange";
+                    if (nome.includes("Juvenil A")) return "teal";
+                    if (nome.includes("Juvenil B")) return "blue";
+                    if (nome.includes("Adulto")) return "purple";
+                    if (nome.includes("Melhor Idade")) return "green";
+                    return "amber";
+                  };
+                  const colorKey = getColor(turma.nome);
+                  const c = COLOR_MAP[colorKey];
+                  const spots = turma.capacidade;
+                  const total = 15; // Lotação padrão máxima
+                  const isFull = spots <= 0;
+                  
+                  return (
+                    <div key={turma.id} className={`bg-white rounded-2xl border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all ${isFull ? "border-gray-200" : c.accent}`}>
+                      {/* Color stripe */}
+                      <div className={`h-2 rounded-t-2xl ${c.dot}`} />
+
+                      <div className="p-5">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base leading-tight">{turma.nome}</h3>
+                            <span className={`inline-block mt-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full ${c.badge} ${c.badgeText}`}>
+                              {turma.turno}
+                            </span>
+                          </div>
+                          {isFull ? (
+                            <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full whitespace-nowrap">Turma cheia</span>
+                          ) : (
+                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                              {spots} vaga{spots > 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-gray-500 leading-relaxed mb-4">{MOCK_EXTRAS.descricao}</p>
+
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-4">
+                          <BookOpen size={12} />
+                          {turma.turno}
+                        </div>
+
+                        <SpotBar spots={spots} total={total} />
+
+                        <div className="mt-4 flex gap-2">
+                          {isFull ? (
+                            <Link to="/inscrever" className="flex-1 h-9 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-1.5">
+                              <ListOrdered size={14} /> Entrar na fila
+                            </Link>
+                          ) : (
+                            <Link to="/inscrever" className={`flex-1 h-9 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 ${c.btnOpen}`}>
+                              <Plus size={14} /> Inscrever-se
+                            </Link>
+                          )}
+                          <button className="h-9 w-9 border border-gray-200 text-gray-400 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center">
+                            <ChevronRight size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

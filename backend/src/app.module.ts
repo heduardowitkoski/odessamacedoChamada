@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SupabaseModule } from './supabase/supabase.module';
-import { DatabaseModule } from './database/database.module';
 import { TurmasModule } from './turmas/turmas.module';
 import { AlunosModule } from './alunos/alunos.module';
 import { FrequenciasModule } from './frequencias/frequencias.module';
@@ -11,8 +10,7 @@ import { FrequenciasModule } from './frequencias/frequencias.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    SupabaseModule,
-    DatabaseModule,
+    SupabaseModule, 
     TurmasModule, 
     AlunosModule,
     FrequenciasModule
@@ -21,3 +19,4 @@ import { FrequenciasModule } from './frequencias/frequencias.module';
   providers: [AppService],
 })
 export class AppModule {}
+

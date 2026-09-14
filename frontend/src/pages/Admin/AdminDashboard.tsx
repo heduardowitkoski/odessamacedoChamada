@@ -1,23 +1,21 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Plus, MoreHorizontal, UserX, RefreshCw, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, Search
+  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, MoreHorizontal, UserX, RefreshCw, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Avatar } from "../../components/ui/Avatar";
 import { Badge } from "../../components/ui/Badge";
 import { supabase } from "../../lib/supabase";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_URL || "https://odessamacedochamada.onrender.com";
 
 export default function AdminDashboard() {
   const [alunosDb, setAlunosDb] = useState<any[]>([]);
   const [turmasDb, setTurmasDb] = useState<any[]>([]);
   const [selectedAluno, setSelectedAluno] = useState<any>(null);
-  const [activeMenu, setActiveMenu] = useState("Dashboard");
+  const [activeMenu, setActiveMenu] = useState("Alunos");
   const [activeTab, setActiveTab] = useState<"alunos" | "fila">("alunos");
-  const [selectedTurmaView, setSelectedTurmaView] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
 
   // Estados para Módulo de Frequência
   const [selectedTurmaFreq, setSelectedTurmaFreq] = useState<string>("");
@@ -31,36 +29,20 @@ export default function AdminDashboard() {
   const fetchAlunos = () => {
     fetch(`${API_BASE}/alunos`)
       .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setAlunosDb(data);
-        else setAlunosDb([]);
-      })
-      .catch(err => {
-        console.error("Erro ao buscar alunos:", err);
-        setAlunosDb([]);
-      });
+      .then(data => setAlunosDb(data))
+      .catch(err => console.error(err));
   };
 
   const fetchTurmas = () => {
     fetch(`${API_BASE}/turmas`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) {
-          setTurmasDb(data);
-          if (data && data.length > 0 && !selectedTurmaFreq) {
-            setSelectedTurmaFreq(data[0].id);
-          }
-          if (data && data.length > 0 && !selectedTurmaView) {
-            setSelectedTurmaView(data[0].id);
-          }
-        } else {
-          setTurmasDb([]);
+        setTurmasDb(data);
+        if (data && data.length > 0 && !selectedTurmaFreq) {
+          setSelectedTurmaFreq(data[0].id);
         }
       })
-      .catch(err => {
-        console.error("Erro ao buscar turmas:", err);
-        setTurmasDb([]);
-      });
+      .catch(err => console.error(err));
   };
 
   const fetchAlertasFaltas = () => {
@@ -68,12 +50,8 @@ export default function AdminDashboard() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setAlertasFaltas(data);
-        else setAlertasFaltas([]);
       })
-      .catch(err => {
-        console.error("Erro ao buscar alertas:", err);
-        setAlertasFaltas([]);
-      });
+      .catch(err => console.error(err));
   };
 
   const fetchFrequencia = (turmaId: string, dataStr: string) => {
@@ -90,14 +68,9 @@ export default function AdminDashboard() {
             status: item.frequencia?.status || "PRESENTE",
             observacao: item.frequencia?.observacao || "",
           })));
-        } else {
-          setListaFrequencia([]);
         }
       })
-      .catch(err => {
-        console.error("Erro ao buscar frequências:", err);
-        setListaFrequencia([]);
-      });
+      .catch(err => console.error(err));
   };
 
   useEffect(() => {
@@ -112,23 +85,14 @@ export default function AdminDashboard() {
     }
   }, [activeMenu, selectedTurmaFreq, selectedDataFreq]);
 
-  const safeAlunos = Array.isArray(alunosDb) ? alunosDb : [];
-  const safeTurmas = Array.isArray(turmasDb) ? turmasDb : [];
-
-  const getTurmaNome = (aluno: any) => {
-    if (aluno?.turmas?.nome) return aluno.turmas.nome;
-    const found = safeTurmas.find(t => t.id === aluno.turma_id);
-    if (found?.nome) return found.nome;
-    return "Turma Geral de Desenho";
-  };
-
-  const alunosAtivos = safeAlunos.filter(a => a.status === 'Ativo');
-  const alunosFila = safeAlunos.filter(a => a.status === 'Fila');
-  const vagasAbertas = safeTurmas.reduce((acc, curr) => acc + (curr.capacidade > 0 ? curr.capacidade : 0), 0);
+  const alunosAtivos = alunosDb.filter(a => a.status === 'Ativo');
+  const alunosFila = alunosDb.filter(a => a.status === 'Fila');
+  
+  const vagasAbertas = turmasDb.reduce((acc, curr) => acc + (curr.capacidade > 0 ? curr.capacidade : 0), 0);
 
   const generateChartData = (alunos: any[]) => {
     const turmasCount = alunos.reduce((acc: any, curr: any) => {
-      const nome = getTurmaNome(curr);
+      const nome = curr.turmas?.nome || "Sem Turma";
       acc[nome] = (acc[nome] || 0) + 1;
       return acc;
     }, {});
@@ -136,7 +100,7 @@ export default function AdminDashboard() {
     const colors = ["#EAB308", "#F97316", "#14B8A6", "#3B82F6", "#8B5CF6", "#22C55E"];
     
     return Object.keys(turmasCount).map((key, index) => ({
-      name: key.replace("Desenho ", "").replace(" - ", " "),
+      name: key.replace("Turma ", ""),
       value: turmasCount[key],
       color: colors[index % colors.length]
     }));
@@ -236,23 +200,17 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    localStorage.removeItem('ode_admin_session');
-    await supabase.auth.signOut().catch(() => {});
-    navigate('/login');
-  };
-
   const menuItems = [
     { icon: <Home size={17} />, label: "Dashboard" },
     { icon: <Users size={17} />, label: "Alunos", badge: alunosAtivos.length },
     { icon: <ListOrdered size={17} />, label: "Fila de espera", badge: alunosFila.length },
-    { icon: <BookOpen size={17} />, label: "Turmas" },
     { 
       icon: <CheckSquare size={17} />, 
       label: "Frequência", 
-      badge: (alertasFaltas && alertasFaltas.length > 0) ? alertasFaltas.length : undefined, 
+      badge: alertasFaltas.length > 0 ? alertasFaltas.length : undefined, 
       badgeColor: "bg-red-500" 
     },
+    { icon: <BookOpen size={17} />, label: "Turmas" },
     { icon: <BarChart2 size={17} />, label: "Relatórios" },
     { icon: <Settings size={17} />, label: "Configurações" },
   ];
@@ -260,20 +218,9 @@ export default function AdminDashboard() {
   const stats = [
     { label: "Alunos matriculados", value: alunosAtivos.length, icon: <UserCheck size={20} />, color: "text-amber-600", bg: "bg-amber-100" },
     { label: "Na fila de espera", value: alunosFila.length, icon: <Clock size={20} />, color: "text-orange-600", bg: "bg-orange-100" },
-    { label: "Alertas de faltas (3+)", value: (alertasFaltas || []).length, icon: <AlertTriangle size={20} />, color: "text-red-600", bg: "bg-red-100" },
+    { label: "Alertas de faltas (3+)", value: alertasFaltas.length, icon: <AlertTriangle size={20} />, color: "text-red-600", bg: "bg-red-100" },
     { label: "Vagas abertas", value: vagasAbertas, icon: <Pencil size={20} />, color: "text-emerald-600", bg: "bg-emerald-100" },
   ];
-
-  // Filtro de busca de alunos
-  const filteredAlunosAtivos = alunosAtivos.filter(a =>
-    a.aluno_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    getTurmaNome(a).toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredAlunosFila = alunosFila.filter(a =>
-    a.aluno_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    getTurmaNome(a).toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif] flex">
@@ -293,11 +240,7 @@ export default function AdminDashboard() {
           {menuItems.map(({ icon, label, badge, badgeColor }) => (
             <button
               key={label}
-              onClick={() => {
-                setActiveMenu(label);
-                if (label === "Alunos") setActiveTab("alunos");
-                if (label === "Fila de espera") setActiveTab("fila");
-              }}
+              onClick={() => setActiveMenu(label)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeMenu === label
                   ? "bg-amber-500 text-white"
@@ -323,8 +266,10 @@ export default function AdminDashboard() {
               <p className="text-amber-400/70 text-[10px]">Administrador</p>
             </div>
             <button 
-              onClick={handleLogout}
-              title="Sair do painel"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate('/login');
+              }}
               className="text-amber-400/70 hover:text-white transition-colors"
             >
               <LogOut size={15} />
@@ -336,35 +281,29 @@ export default function AdminDashboard() {
       {/* Conteúdo */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-amber-100 h-16 flex items-center px-8 gap-4 flex-shrink-0 shadow-sm">
-          <div className="flex-1 flex items-center gap-4">
+          <div className="flex-1">
             <h1 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-lg">
-              {activeMenu === "Frequência" && "Registro de Frequência e Chamada Diária"}
-              {activeMenu === "Turmas" && "Turmas Cadastradas e Relação de Alunos"}
-              {activeMenu === "Alunos" && "Gestão de Alunos Matriculados"}
-              {activeMenu === "Fila de espera" && "Fila de Espera de Vagas"}
-              {activeMenu === "Dashboard" && "Visão Geral · Aulas de Desenho"}
-              {activeMenu === "Relatórios" && "Relatórios e Estatísticas"}
-              {activeMenu === "Configurações" && "Configurações do Sistema"}
+              {activeMenu === "Frequência" ? "Registro de Frequência e Chamada Diária" : "Gestão de Alunos · Aulas de Desenho"}
             </h1>
           </div>
           <div className="flex items-center gap-3">
             <button className="relative p-2 text-gray-400 hover:text-gray-700 rounded-xl hover:bg-gray-100">
               <Bell size={20} />
-              {(alertasFaltas && alertasFaltas.length > 0) && (
+              {alertasFaltas.length > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
               )}
             </button>
-            <button onClick={() => { fetchAlunos(); fetchTurmas(); fetchAlertasFaltas(); }} className="flex items-center gap-2 text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50">
-              <RefreshCw size={14} /> Atualizar Dados
+            <button className="flex items-center gap-2 text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50">
+              <Download size={15} /> Exportar
             </button>
-            <Link to="/inscrever" className="flex items-center gap-2 text-sm text-white bg-amber-500 font-medium rounded-xl px-3 py-2 hover:bg-amber-600 transition-colors shadow-xs">
+            <Link to="/inscrever" className="flex items-center gap-2 text-sm text-white bg-amber-500 font-medium rounded-xl px-3 py-2 hover:bg-amber-600 transition-colors">
               <Plus size={15} /> Nova inscrição
             </Link>
           </div>
         </header>
 
         <div className="flex-1 overflow-auto p-7">
-          {/* Stats Bar */}
+          {/* Stats */}
           <div className="grid grid-cols-4 gap-5 mb-7">
             {stats.map(({ label, value, icon, color, bg }) => (
               <div key={label} className="bg-white rounded-2xl p-5 border border-amber-50 shadow-sm flex items-center gap-4">
@@ -377,128 +316,11 @@ export default function AdminDashboard() {
             ))}
           </div>
 
-          {/* === MENU: TURMAS (VISUALIZAÇÃO DE ALUNOS POR TURMA) === */}
-          {activeMenu === "Turmas" && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
-                <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
-                  <div>
-                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base">
-                      Turmas do Centro
-                    </h2>
-                    <p className="text-xs text-gray-500">Selecione uma turma para visualizar a relação de alunos cadastrados</p>
-                  </div>
-                </div>
-
-                {/* Lista de Turmas - sem exibir contadores de vagas ou alunos nos cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                  {safeTurmas.map((t) => {
-                    const isSelected = selectedTurmaView === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => setSelectedTurmaView(t.id)}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
-                          isSelected
-                            ? "border-amber-500 bg-amber-50/60 shadow-sm"
-                            : "border-gray-100 hover:border-amber-200 bg-white"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
-                              <BookOpen size={16} />
-                            </div>
-                            <div>
-                              <p className="font-bold text-sm text-[#1C1300]">{t.nome}</p>
-                              <span className="text-xs text-gray-500 font-medium">Turno: {t.turno}</span>
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                          )}
-                        </div>
-                        <div className="mt-3 pt-2 border-t border-gray-100/80 flex items-center justify-end text-xs text-amber-700 font-semibold">
-                          <span>Ver alunos da turma →</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Tabela de Alunos da Turma Selecionada (Mostra somente informações da turma, sem dados sensíveis) */}
-                {selectedTurmaView && (
-                  <div className="mt-6 pt-6 border-t border-gray-100">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="font-bold text-sm text-[#1C1300]">
-                          Alunos Cadastrados: {safeTurmas.find(t => t.id === selectedTurmaView)?.nome || "Turma"}
-                        </h3>
-                        <p className="text-xs text-gray-400">Relação de estudantes vinculados à turma selecionada</p>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto rounded-xl border border-gray-100">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-gray-50/80 border-b border-gray-100 text-left text-xs font-semibold text-gray-500">
-                            <th className="px-5 py-3">#</th>
-                            <th className="px-5 py-3">Nome do Aluno</th>
-                            <th className="px-5 py-3">Turma</th>
-                            <th className="px-5 py-3">Turno</th>
-                            <th className="px-5 py-3">Status</th>
-                            <th className="px-5 py-3">Data de Inscrição</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {safeAlunos
-                            .filter(a => a.turma_id === selectedTurmaView)
-                            .map((aluno, index) => (
-                              <tr key={aluno.id} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
-                                <td className="px-5 py-3 text-xs font-semibold text-gray-400">{index + 1}</td>
-                                <td className="px-5 py-3">
-                                  <div className="flex items-center gap-3">
-                                    <Avatar alt={aluno.aluno_nome} size={30} />
-                                    <p className="font-semibold text-sm text-[#1C1300]">{aluno.aluno_nome}</p>
-                                  </div>
-                                </td>
-                                <td className="px-5 py-3">
-                                  <Badge variant="amber">{getTurmaNome(aluno)}</Badge>
-                                </td>
-                                <td className="px-5 py-3 text-xs text-gray-600">
-                                  {safeTurmas.find(t => t.id === aluno.turma_id)?.turno || "Geral"}
-                                </td>
-                                <td className="px-5 py-3">
-                                  <Badge variant={aluno.status === "Ativo" ? "green" : aluno.status === "Fila" ? "amber" : "gray"}>
-                                    {aluno.status}
-                                  </Badge>
-                                </td>
-                                <td className="px-5 py-3 text-xs text-gray-500">
-                                  {new Date(aluno.created_at).toLocaleDateString()}
-                                </td>
-                              </tr>
-                            ))}
-                          {safeAlunos.filter(a => a.turma_id === selectedTurmaView).length === 0 && (
-                            <tr>
-                              <td colSpan={6} className="px-6 py-10 text-center text-gray-400 text-sm">
-                                Nenhum aluno cadastrado nesta turma até o momento.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* === MENU: FREQUÊNCIA === */}
-          {activeMenu === "Frequência" && (
+          {activeMenu === "Frequência" ? (
+            /* --- MÓDULO DE FREQUÊNCIA --- */
             <div className="space-y-6">
               {/* Alertas de Absenteísmo */}
-              {(alertasFaltas && alertasFaltas.length > 0) && (
+              {alertasFaltas.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-5 shadow-sm">
                   <div className="flex items-center gap-3 mb-3">
                     <AlertTriangle className="text-red-600" size={20} />
@@ -516,7 +338,7 @@ export default function AdminDashboard() {
                               {faltasConsecutivas} faltas seguidas
                             </span>
                           </div>
-                          <p className="text-xs text-gray-500 mb-1">{getTurmaNome(aluno)}</p>
+                          <p className="text-xs text-gray-500 mb-1">{aluno.turmas?.nome || "Sem Turma"}</p>
                           <p className="text-xs text-gray-600">
                             Resp: {aluno.resp_nome} ({aluno.resp_telefone})
                           </p>
@@ -557,7 +379,7 @@ export default function AdminDashboard() {
                         onChange={(e) => setSelectedTurmaFreq(e.target.value)}
                         className="bg-gray-50 border border-gray-200 text-gray-800 text-sm font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
                       >
-                        {safeTurmas.map((t) => (
+                        {turmasDb.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.nome} ({t.turno})
                           </option>
@@ -679,10 +501,8 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
-          )}
-
-          {/* === MENU: DASHBOARD / ALUNOS / FILA === */}
-          {(activeMenu === "Dashboard" || activeMenu === "Alunos" || activeMenu === "Fila de espera") && (
+          ) : (
+            /* --- DASHBOARD / VISÃO DE ALUNOS --- */
             <div className="flex gap-6">
               {/* Tabela principal */}
               <div className="flex-1 space-y-6">
@@ -707,17 +527,6 @@ export default function AdminDashboard() {
                         </button>
                       ))}
                     </div>
-
-                    <div className="relative">
-                      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Buscar aluno ou turma..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 w-60"
-                      />
-                    </div>
                   </div>
 
                   {activeTab === "alunos" ? (
@@ -730,7 +539,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAlunosAtivos.map((a) => (
+                        {alunosAtivos.map((a) => (
                           <tr
                             key={a.id}
                             onClick={() => setSelectedAluno(a)}
@@ -745,7 +554,7 @@ export default function AdminDashboard() {
                               </div>
                             </td>
                             <td className="px-6 py-3">
-                              <Badge variant="amber">{getTurmaNome(a)}</Badge>
+                              <Badge variant="amber">{a.turmas?.nome || "Sem Turma"}</Badge>
                             </td>
                             <td className="px-6 py-3 text-xs text-gray-500">{new Date(a.created_at).toLocaleDateString()}</td>
                             <td className="px-6 py-3">
@@ -758,9 +567,9 @@ export default function AdminDashboard() {
                             </td>
                           </tr>
                         ))}
-                        {filteredAlunosAtivos.length === 0 && (
+                        {alunosAtivos.length === 0 && (
                           <tr>
-                             <td colSpan={5} className="px-6 py-10 text-center text-gray-500">Nenhum aluno ativo encontrado no banco de dados.</td>
+                             <td colSpan={5} className="px-6 py-10 text-center text-gray-500">Nenhum aluno ativo encontrado.</td>
                           </tr>
                         )}
                       </tbody>
@@ -775,7 +584,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAlunosFila.map((f) => (
+                        {alunosFila.map((f) => (
                           <tr key={f.id} className="border-b border-gray-50 hover:bg-amber-50/40 transition-colors">
                             <td className="px-6 py-3">
                               <p className="font-semibold text-sm text-[#1C1300]">{f.aluno_nome}</p>
@@ -785,7 +594,7 @@ export default function AdminDashboard() {
                               <p className="text-xs text-gray-400">{f.resp_telefone}</p>
                             </td>
                             <td className="px-6 py-3">
-                              <Badge variant="gray">{getTurmaNome(f)}</Badge>
+                              <Badge variant="gray">{f.turmas?.nome}</Badge>
                             </td>
                             <td className="px-6 py-3 text-xs text-gray-500">{new Date(f.created_at).toLocaleDateString()}</td>
                             <td className="px-6 py-3">
@@ -795,7 +604,7 @@ export default function AdminDashboard() {
                             </td>
                           </tr>
                         ))}
-                        {filteredAlunosFila.length === 0 && (
+                        {alunosFila.length === 0 && (
                           <tr>
                              <td colSpan={5} className="px-6 py-10 text-center text-gray-500">Nenhum aluno na fila.</td>
                           </tr>
@@ -806,34 +615,32 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Gráfico */}
-                {activeMenu === "Dashboard" && (
-                  <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
-                    <div className="flex items-center gap-2 mb-5">
-                      <TrendingUp size={17} className="text-amber-500" />
-                      <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base">Alunos por turma</h2>
-                    </div>
-                    {chartData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={170}>
-                        <BarChart data={chartData} barSize={32}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#FEF9EC" />
-                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 10, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                          <Tooltip
-                            contentStyle={{ borderRadius: 12, border: "1px solid #FDE68A", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}
-                            cursor={{ fill: "#FFFBEB" }}
-                          />
-                          <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                            {chartData.map((entry: any) => (
-                              <Cell key={entry.name} fill={entry.color} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-[170px] flex items-center justify-center text-gray-400 text-sm">Nenhum dado para exibir</div>
-                    )}
+                <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
+                  <div className="flex items-center gap-2 mb-5">
+                    <TrendingUp size={17} className="text-amber-500" />
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base">Alunos por turma</h2>
                   </div>
-                )}
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={170}>
+                      <BarChart data={chartData} barSize={32}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#FEF9EC" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 12, border: "1px solid #FDE68A", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}
+                          cursor={{ fill: "#FFFBEB" }}
+                        />
+                        <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                          {chartData.map((entry: any) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-[170px] flex items-center justify-center text-gray-400 text-sm">Nenhum dado para exibir</div>
+                  )}
+                </div>
               </div>
 
               {/* Ficha lateral */}
@@ -855,7 +662,7 @@ export default function AdminDashboard() {
                     <div>
                       <p className="text-xs font-semibold text-gray-400 mb-2">Dados da matrícula</p>
                       {[
-                        { label: "Turma", value: getTurmaNome(selectedAluno) },
+                        { label: "Turma", value: selectedAluno.turmas?.nome || "---" },
                         { label: "Matriculado em", value: new Date(selectedAluno.created_at).toLocaleDateString() },
                       ].map(({ label, value }) => (
                         <div key={label} className="flex justify-between py-1.5 border-b border-gray-50">
@@ -880,6 +687,12 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="p-5 pt-0 space-y-2">
+                    <button className="w-full h-10 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2">
+                      <FileText size={14} /> Ver ficha completa
+                    </button>
+                    <button className="w-full h-10 bg-blue-50 text-blue-700 border border-blue-200 text-sm font-bold rounded-xl hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                      <RefreshCw size={14} /> Transferir de turma
+                    </button>
                     <button onClick={() => handleCancel(selectedAluno)} className="w-full h-10 bg-red-50 text-red-700 border border-red-200 text-sm font-bold rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
                       <UserX size={14} /> Cancelar matrícula
                     </button>
@@ -890,47 +703,6 @@ export default function AdminDashboard() {
                     Selecione um aluno na tabela para ver a ficha completa.
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* === MENU: RELATÓRIOS === */}
-          {activeMenu === "Relatórios" && (
-            <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6 space-y-6">
-              <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base">
-                Resumo Geral de Ocupação por Turma
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {safeTurmas.map((t) => {
-                  const matriculados = safeAlunos.filter(a => a.turma_id === t.id && a.status === 'Ativo').length;
-                  const fila = safeAlunos.filter(a => a.turma_id === t.id && a.status === 'Fila').length;
-                  return (
-                    <div key={t.id} className="p-4 rounded-xl border border-amber-100 bg-amber-50/30">
-                      <p className="font-bold text-sm text-[#1C1300] mb-1">{t.nome}</p>
-                      <p className="text-xs text-gray-500 mb-3">Turno: {t.turno}</p>
-                      <div className="space-y-1.5 text-xs text-gray-700">
-                        <div className="flex justify-between"><span>Matriculados:</span> <strong>{matriculados}</strong></div>
-                        <div className="flex justify-between"><span>Fila de espera:</span> <strong>{fila}</strong></div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* === MENU: CONFIGURAÇÕES === */}
-          {activeMenu === "Configurações" && (
-            <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6 space-y-4">
-              <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base">
-                Configurações do Sistema
-              </h2>
-              <div className="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-2 text-xs text-gray-700">
-                <p><strong>Unidade:</strong> Centro de Desenvolvimento da Expressão Odessa Macedo</p>
-                <p><strong>Órgão:</strong> Secretaria Municipal de Cultura de Bagé / RS</p>
-                <p><strong>Conta conectada:</strong> Sec. de Cultura (teste@gmail.com)</p>
-                <p><strong>API Backend:</strong> {API_BASE}</p>
-                <p><strong>Banco de Dados:</strong> Supabase PostgreSQL</p>
               </div>
             </div>
           )}

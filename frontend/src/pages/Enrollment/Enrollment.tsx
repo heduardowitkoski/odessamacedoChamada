@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle, AlertCircle, Pencil, ArrowRight } from "lucide-react";
-import { COLOR_MAP } from "../../lib/mock";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+import { SpotBar } from "../../components/ui/SpotBar";
+import { COLOR_MAP } from "../../lib/mock"; // TURMAS não é mais mock, vem da API
 
 type FormStep = 0 | 1 | 2 | 3;
 
@@ -14,18 +13,9 @@ interface Turma {
   capacidade: number;
 }
 
-const INITIAL_TURMAS: Turma[] = [
-  { id: "e0a1b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c", nome: "Turma Infantil A (5 a 7 anos)", turno: "Tarde (14h às 15h)", capacidade: 12 },
-  { id: "f1b2c3d4-e5f6-4a7b-8c9d-1e2f3a4b5c6d", nome: "Turma Infantil B (8 a 10 anos)", turno: "Tarde (14h às 15h30)", capacidade: 15 },
-  { id: "a2c3d4e5-f6a7-4b8c-9d0e-2f3a4b5c6d7e", nome: "Turma Juvenil A (11 a 13 anos)", turno: "Tarde (14h às 15h30)", capacidade: 10 },
-  { id: "b3d4e5f6-a7b8-4c9d-0e1f-3a4b5c6d7e8f", nome: "Turma Juvenil B (14 a 17 anos)", turno: "Tarde (14h às 16h)", capacidade: 8 },
-  { id: "c4e5f6a7-b8c9-4d0e-1f2a-4b5c6d7e8f9a", nome: "Turma Adulto (18 anos ou mais)", turno: "Noite (18h30 às 20h)", capacidade: 14 },
-  { id: "d5f6a7b8-c9d0-4e1f-2a3b-5c6d7e8f9a0b", nome: "Turma Melhor Idade (60 anos ou mais)", turno: "Manhã (9h às 10h30)", capacidade: 12 },
-];
-
 export default function EnrollmentScreen() {
   const [step, setStep] = useState<FormStep>(0);
-  const [turmasDb, setTurmasDb] = useState<Turma[]>(INITIAL_TURMAS);
+  const [turmasDb, setTurmasDb] = useState<Turma[]>([]);
   const navigate = useNavigate();
 
   // Estados do Formulário
@@ -51,24 +41,14 @@ export default function EnrollmentScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE}/turmas`)
+    fetch("https://odessamacedochamada.onrender.com/turmas")
       .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          setTurmasDb(data);
-          if (!formData.turma_id) {
-            setFormData(prev => ({ ...prev, turma_id: data[0].id }));
-          }
-        }
-      })
-      .catch(err => {
-        console.error("Erro ao buscar turmas:", err);
-      });
+      .then(data => setTurmasDb(data))
+      .catch(err => console.error(err));
   }, []);
 
   const steps = ["Responsável", "Aluno", "Turma", "Confirmação"];
-  const safeTurmas = (Array.isArray(turmasDb) && turmasDb.length > 0) ? turmasDb : INITIAL_TURMAS;
-  const selectedTurma = safeTurmas.find((t) => t.id === formData.turma_id) || safeTurmas[0];
+  const selectedTurma = turmasDb.find((t) => t.id === formData.turma_id);
 
   const handleChange = (e: any) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -79,35 +59,22 @@ export default function EnrollmentScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.aluno_nome || !formData.resp_nome) {
-      alert("Por favor, preencha os dados do responsável e do aluno antes de confirmar.");
-      return;
-    }
-
     setLoading(true);
-    const turmaIdToSend = formData.turma_id || selectedTurma?.id || safeTurmas[0]?.id;
-    const payload = {
-      ...formData,
-      turma_id: turmaIdToSend,
-    };
-
     try {
-      const res = await fetch(`${API_BASE}/alunos`, {
+      const res = await fetch("https://odessamacedochamada.onrender.com/alunos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(formData)
       });
-
       if (res.ok) {
-        alert("Inscrição realizada com sucesso! O cadastro foi salvo e já consta na Área Administrativa.");
+        alert("Inscrição confirmada com sucesso!");
         navigate("/admin");
       } else {
-        const err = await res.json().catch(() => ({}));
-        alert("Erro ao confirmar inscrição: " + (err.message || "Tente novamente."));
+        const err = await res.json();
+        alert("Erro ao confirmar: " + (err.message || "Tente novamente."));
       }
     } catch (e) {
-      console.error("Erro ao enviar:", e);
-      alert("Não foi possível comunicar com o servidor backend (http://localhost:3000). Certifique-se de executar o arquivo iniciar.bat.");
+      alert("Erro de conexão.");
     } finally {
       setLoading(false);
     }
@@ -136,7 +103,7 @@ export default function EnrollmentScreen() {
       <div className="max-w-[1440px] mx-auto px-8 py-10">
         <div className="mb-7">
           <h1 className="font-['Plus_Jakarta_Sans',sans-serif] text-3xl font-extrabold text-[#1C1300] mb-1">Inscrição nas Aulas de Desenho</h1>
-          <p className="text-gray-500 text-sm">Preencha os dados abaixo para cadastrar o aluno nas turmas de desenho artístico.</p>
+          <p className="text-gray-500 text-sm">Preencha os dados abaixo. Se a turma escolhida não tiver vagas, você será incluído(a) na fila de espera automaticamente.</p>
         </div>
 
         {/* Alerta gratuidade */}
@@ -144,7 +111,7 @@ export default function EnrollmentScreen() {
           <CheckCircle size={18} className="text-emerald-600 flex-shrink-0" />
           <div>
             <p className="text-sm font-bold text-emerald-900">Inscrição e aulas totalmente gratuitas</p>
-            <p className="text-xs text-emerald-700">Materiais de desenho fornecidos pelo Centro. Vagas abertas para toda a comunidade.</p>
+            <p className="text-xs text-emerald-700">Materiais de desenho fornecidos pelo Centro. Frequência obrigatória.</p>
           </div>
         </div>
 
@@ -178,11 +145,11 @@ export default function EnrollmentScreen() {
                   <p className="text-xs text-gray-400 mb-5">Para alunos menores de 18 anos, preencha os dados do responsável legal. Para adultos e melhor idade, preencha seus próprios dados.</p>
                   <div className="grid grid-cols-2 gap-5">
                     {[
-                      { label: "Nome completo *", name: "resp_nome", placeholder: "Nome do responsável ou próprio aluno (adulto)", col: 2 },
+                      { label: "Nome completo", name: "resp_nome", placeholder: "Nome do responsável ou próprio aluno (adulto)", col: 2 },
                       { label: "CPF", name: "resp_cpf", placeholder: "000.000.000-00", col: 1 },
                       { label: "RG", name: "resp_rg", placeholder: "0000000000", col: 1 },
                       { label: "E-mail", name: "resp_email", placeholder: "email@exemplo.com", col: 1 },
-                      { label: "Telefone / WhatsApp *", name: "resp_telefone", placeholder: "(53) 99999-0000", col: 1 },
+                      { label: "Telefone / WhatsApp", name: "resp_telefone", placeholder: "(53) 99999-0000", col: 1 },
                       { label: "Endereço", name: "resp_endereco", placeholder: "Rua, número", col: 2 },
                       { label: "CEP", name: "resp_cep", placeholder: "96400-000", col: 1 },
                       { label: "Bairro / Cidade", name: "resp_bairro", placeholder: "Bagé/RS", col: 1 },
@@ -200,11 +167,11 @@ export default function EnrollmentScreen() {
               {step === 1 && (
                 <div>
                   <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300] mb-1">Dados do aluno</h2>
-                  <p className="text-xs text-gray-400 mb-5">Preencha os dados de quem vai frequentar as aulas de desenho.</p>
+                  <p className="text-xs text-gray-400 mb-5">Preencha os dados de quem vai frequentar as aulas.</p>
                   <div className="grid grid-cols-2 gap-5">
                     {[
-                      { label: "Nome completo do aluno *", name: "aluno_nome", placeholder: "Nome completo", type: "text", col: 2 },
-                      { label: "Data de nascimento *", name: "aluno_nascimento", placeholder: "AAAA-MM-DD", type: "date", col: 1 },
+                      { label: "Nome completo do aluno", name: "aluno_nome", placeholder: "Nome completo", type: "text", col: 2 },
+                      { label: "Data de nascimento", name: "aluno_nascimento", placeholder: "DD/MM/AAAA", type: "date", col: 1 },
                       { label: "Sexo", name: "aluno_sexo", placeholder: "Ex: Masculino, Feminino...", type: "text", col: 1 },
                       { label: "CPF do aluno (se tiver)", name: "aluno_cpf", placeholder: "000.000.000-00", type: "text", col: 1 },
                       { label: "Escola / Instituição de ensino", name: "aluno_escola", placeholder: "Nome da escola", type: "text", col: 1 },
@@ -218,13 +185,15 @@ export default function EnrollmentScreen() {
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5">Possui experiência prévia em desenho?</label>
                       <div className="flex gap-2">
                         {["Nenhuma", "Um pouco", "Sim, tenho prática"].map((v) => (
-                          <button key={v} onClick={() => handleExperiencia(v)} className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${formData.aluno_experiencia === v ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:border-amber-300'}`}>{v}</button>
+                          <button key={v} onClick={() => handleExperiencia(v)} className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${formData.aluno_experiencia === v ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:border-amber-300'}`}>
+                            {v}
+                          </button>
                         ))}
                       </div>
                     </div>
                     <div className="col-span-2">
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5">Necessidades especiais ou observações</label>
-                      <textarea name="aluno_necessidades" value={formData.aluno_necessidades} onChange={handleChange} rows={2} placeholder="Alergias, observações pedagógicas..." className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white resize-none transition-colors" />
+                      <textarea name="aluno_necessidades" value={formData.aluno_necessidades} onChange={handleChange} rows={2} placeholder="Alergias, etc..." className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white resize-none transition-colors" />
                     </div>
                   </div>
                 </div>
@@ -234,19 +203,21 @@ export default function EnrollmentScreen() {
               {step === 2 && (
                 <div>
                   <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300] mb-1">Escolha da turma</h2>
-                  <p className="text-xs text-gray-400 mb-5">Selecione a turma desejada para a realização das aulas.</p>
+                  <p className="text-xs text-gray-400 mb-5">Selecione a turma correspondente. Turmas cheias o colocarão na fila.</p>
+                  
+                  {turmasDb.length === 0 && <p className="text-sm text-gray-500">Buscando turmas...</p>}
                   
                   <div className="space-y-3 mb-6">
-                    {safeTurmas.map((t) => {
-                      const isSelected = formData.turma_id === t.id;
+                    {turmasDb.map((t) => {
                       const c = COLOR_MAP['amber'];
+                      const isFull = t.capacidade <= 0;
                       return (
                         <button
                           key={t.id}
                           onClick={() => setFormData({ ...formData, turma_id: t.id })}
                           className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4 ${
-                            isSelected
-                              ? `${c.accent} bg-amber-50 shadow-xs`
+                            formData.turma_id === t.id
+                              ? `${c.accent} bg-amber-50`
                               : "border-gray-200 hover:border-amber-200 bg-white"
                           }`}
                         >
@@ -258,17 +229,25 @@ export default function EnrollmentScreen() {
                               <p className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm text-[#1C1300]">{t.nome}</p>
                               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.badge} ${c.badgeText}`}>{t.turno}</span>
                             </div>
-                            <p className="text-xs text-gray-400">Turma de Desenho · CDE Odessa Macedo</p>
+                            <SpotBar spots={t.capacidade} total={Math.max(t.capacidade, 15)} />
                           </div>
-                          {isSelected && (
-                            <span className="text-xs text-amber-700 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-lg font-bold whitespace-nowrap flex-shrink-0">
-                              Selecionada ✓
-                            </span>
+                          {isFull && (
+                            <span className="text-xs text-amber-700 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap flex-shrink-0">→ Fila</span>
                           )}
                         </button>
                       );
                     })}
                   </div>
+
+                  {selectedTurma?.capacidade === 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+                      <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold text-amber-900">Esta turma está sem vagas no momento</p>
+                        <p className="text-xs text-amber-700 mt-0.5">Ao confirmar, você será incluído(a) na lista de espera. Entraremos em contato assim que surgir uma vaga.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -279,8 +258,8 @@ export default function EnrollmentScreen() {
                   <p className="text-gray-500 text-sm mb-6">Verifique os dados antes de confirmar.</p>
                   <div className="space-y-3">
                     {[
-                      { section: "Responsável", items: [formData.resp_nome, `Telefone: ${formData.resp_telefone}`], ok: !!formData.resp_nome && !!formData.resp_telefone },
-                      { section: "Aluno", items: [formData.aluno_nome, `Nascimento: ${formData.aluno_nascimento}`], ok: !!formData.aluno_nome },
+                      { section: "Responsável", items: [formData.resp_nome, `Telefone: ${formData.resp_telefone}`], ok: formData.resp_nome && formData.resp_telefone },
+                      { section: "Aluno", items: [formData.aluno_nome, `Nascimento: ${formData.aluno_nascimento}`], ok: formData.aluno_nome && formData.aluno_nascimento },
                       { section: "Turma selecionada", items: [
                         selectedTurma ? selectedTurma.nome : "Nenhuma turma selecionada",
                       ].filter(Boolean), ok: !!selectedTurma },
@@ -297,7 +276,7 @@ export default function EnrollmentScreen() {
                     ))}
                   </div>
                   <p className="mt-5 text-xs text-gray-500 bg-gray-50 rounded-xl p-4 leading-relaxed">
-                    Ao confirmar, o aluno será cadastrado oficialmente no sistema do Centro de Desenvolvimento da Expressão Odessa Macedo.
+                    Ao confirmar, você declara que as informações são verdadeiras e concorda com as normas do Centro de Desenvolvimento da Expressão Odessa Macedo.
                   </p>
                 </div>
               )}
@@ -316,16 +295,9 @@ export default function EnrollmentScreen() {
                 {step < 3 ? (
                   <button
                     onClick={() => {
-                      if (step === 0 && !formData.resp_nome) {
-                        alert("Por favor, preencha o nome do responsável.");
-                        return;
-                      }
-                      if (step === 1 && !formData.aluno_nome) {
-                        alert("Por favor, preencha o nome do aluno.");
-                        return;
-                      }
                       if (step === 2 && !formData.turma_id) {
-                        setFormData(prev => ({ ...prev, turma_id: selectedTurma?.id || safeTurmas[0]?.id }));
+                        alert("Por favor, selecione uma turma antes de prosseguir.");
+                        return;
                       }
                       setStep((s) => Math.min(3, s + 1) as FormStep)
                     }}
@@ -335,29 +307,38 @@ export default function EnrollmentScreen() {
                   </button>
                 ) : (
                   <button onClick={handleSubmit} disabled={loading} className="px-6 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50">
-                    {loading ? "Gravando Inscrição..." : "Confirmar Inscrição"}
+                    {loading ? "Confirmando..." : (
+                       <><CheckCircle size={16} /> {selectedTurma?.capacidade === 0 ? "Entrar na fila de espera" : "Confirmar matrícula"}</>
+                    )}
                   </button>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Sidebar resumo */}
-          <div className="w-80 flex-shrink-0">
-            <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6 sticky top-24">
-              <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300] mb-4">Resumo da Inscrição</h3>
-              <div className="space-y-3 text-xs">
-                <div>
-                  <span className="text-gray-400 block mb-0.5">Aluno:</span>
-                  <span className="font-semibold text-gray-800">{formData.aluno_nome || "—"}</span>
+          {/* Preview lateral */}
+          <div className="w-64 flex-shrink-0 hidden lg:block">
+            <div className="sticky top-24">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Resumo</p>
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-amber-100">
+                <div className="h-24 bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                  <Pencil size={32} className="text-white/60" />
                 </div>
-                <div>
-                  <span className="text-gray-400 block mb-0.5">Responsável:</span>
-                  <span className="font-semibold text-gray-800">{formData.resp_nome || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block mb-0.5">Turma:</span>
-                  <span className="font-semibold text-gray-800">{selectedTurma?.nome || "Não selecionada"}</span>
+                <div className="p-4">
+                  <p className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-sm mb-0.5">{formData.aluno_nome || "Novo Aluno"}</p>
+                  <p className="text-xs text-gray-400 mb-3">{formData.aluno_nascimento || "---"}</p>
+                  {selectedTurma && (
+                    <div className="mb-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                      <p className="text-xs font-bold text-amber-800">{selectedTurma.nome}</p>
+                      <p className="text-xs text-amber-600 mt-0.5">{selectedTurma.turno}</p>
+                      {selectedTurma.capacidade <= 0 && (
+                        <p className="text-xs font-bold text-red-600 mt-1.5">⚠ Entrará na fila</p>
+                      )}
+                    </div>
+                  )}
+                  <div className={`w-full h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold ${step === 3 ? "bg-green-500" : "bg-gray-300"}`}>
+                    {step === 3 ? "Pronto para confirmar" : "Preenchendo..."}
+                  </div>
                 </div>
               </div>
             </div>
