@@ -38,9 +38,6 @@ export default function AdminDashboard() {
       .then(res => res.json())
       .then(data => {
         setTurmasDb(data);
-        if (data && data.length > 0 && !selectedTurmaFreq) {
-          setSelectedTurmaFreq(data[0].id);
-        }
       })
       .catch(err => console.error(err));
   };
@@ -62,9 +59,9 @@ export default function AdminDashboard() {
         if (Array.isArray(data)) {
           setListaFrequencia(data.map((item: any) => ({
             aluno_id: item.id,
-            aluno_nome: item.aluno_nome,
-            resp_nome: item.resp_nome,
-            resp_telefone: item.resp_telefone,
+            aluno_nome: item.aluno_nome || item.resp_nome || "Aluno sem nome",
+            resp_nome: item.resp_nome || "—",
+            resp_telefone: item.resp_telefone || "—",
             status: item.frequencia?.status || "PRESENTE",
             observacao: item.frequencia?.observacao || "",
           })));
@@ -78,6 +75,17 @@ export default function AdminDashboard() {
     fetchTurmas();
     fetchAlertasFaltas();
   }, []);
+
+  useEffect(() => {
+    if (turmasDb.length > 0 && !selectedTurmaFreq) {
+      const turmaComAlunos = turmasDb.find(t => alunosDb.some(a => a.turma_id === t.id && a.status === 'Ativo'));
+      if (turmaComAlunos) {
+        setSelectedTurmaFreq(turmaComAlunos.id);
+      } else {
+        setSelectedTurmaFreq(turmasDb[0].id);
+      }
+    }
+  }, [turmasDb, alunosDb, selectedTurmaFreq]);
 
   useEffect(() => {
     if (activeMenu === "Frequência" && selectedTurmaFreq && selectedDataFreq) {
@@ -379,11 +387,14 @@ export default function AdminDashboard() {
                         onChange={(e) => setSelectedTurmaFreq(e.target.value)}
                         className="bg-gray-50 border border-gray-200 text-gray-800 text-sm font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
                       >
-                        {turmasDb.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.nome} ({t.turno})
-                          </option>
-                        ))}
+                        {turmasDb.map((t) => {
+                          const count = alunosDb.filter(a => a.turma_id === t.id && a.status === 'Ativo').length;
+                          return (
+                            <option key={t.id} value={t.id}>
+                              {t.nome} ({t.turno}) — {count} {count === 1 ? 'aluno' : 'alunos'}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 

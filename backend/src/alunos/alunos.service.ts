@@ -38,10 +38,12 @@ export class AlunosService {
       status = 'Fila';
     }
 
+    const aluno_nome = createAlunoDto.aluno_nome?.trim() || createAlunoDto.resp_nome?.trim() || 'Aluno';
+
     // 3. Inserir aluno
     const { data, error } = await supabase
       .from('alunos')
-      .insert([{ ...createAlunoDto, status }])
+      .insert([{ ...createAlunoDto, aluno_nome, status }])
       .select();
 
     if (error) {

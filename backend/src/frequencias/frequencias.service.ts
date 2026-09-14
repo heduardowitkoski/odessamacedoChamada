@@ -47,6 +47,7 @@ export class FrequenciasService {
       const registro = mapFreq.get(aluno.id);
       return {
         ...aluno,
+        aluno_nome: aluno.aluno_nome || aluno.resp_nome || 'Aluno sem nome',
         frequencia: registro
           ? { status: registro.status, observacao: registro.observacao, id: registro.id }
           : { status: 'PRESENTE', observacao: '' }, // default para facilidade na chamada
