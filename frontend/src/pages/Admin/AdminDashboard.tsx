@@ -77,11 +77,11 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (turmasDb.length > 0 && !selectedTurmaFreq) {
+    if (turmasDb.length > 0 && alunosDb.length > 0 && !selectedTurmaFreq) {
       const turmaComAlunos = turmasDb.find(t => alunosDb.some(a => a.turma_id === t.id && a.status === 'Ativo'));
       if (turmaComAlunos) {
         setSelectedTurmaFreq(turmaComAlunos.id);
-      } else {
+      } else if (turmasDb.length > 0) {
         setSelectedTurmaFreq(turmasDb[0].id);
       }
     }

@@ -26,11 +26,16 @@ export class FrequenciasService {
       throw new InternalServerErrorException("Erro ao buscar alunos: " + alunosError.message);
     }
 
-    // 2. Buscar registros de frequencia já efetuados nesta data para esta turma
+    if (!alunos || alunos.length === 0) {
+      return [];
+    }
+
+    // 2. Buscar registros de frequencia já efetuados nesta data para os alunos da turma
+    const alunoIds = alunos.map((a: any) => a.id);
     const { data: frequencias, error: freqError } = await supabase
       .from('frequencias')
       .select('*')
-      .eq('turma_id', turma_id)
+      .in('aluno_id', alunoIds)
       .eq('data', dataStr);
 
     if (freqError) {
@@ -43,14 +48,34 @@ export class FrequenciasService {
     }
 
     // Combine alunos com seus registros de frequencia
-    return (alunos || []).map((aluno: any) => {
+    return alunos.map((aluno: any) => {
       const registro = mapFreq.get(aluno.id);
+      let status: 'PRESENTE' | 'FALTA' | 'JUSTIFICADA' = 'PRESENTE';
+      let observacao = '';
+
+      if (registro) {
+        if (registro.presente) {
+          status = 'PRESENTE';
+          observacao = registro.justificativa || '';
+        } else {
+          if (registro.justificativa && registro.justificativa.startsWith('[JUSTIFICADA]')) {
+            status = 'JUSTIFICADA';
+            observacao = registro.justificativa.replace('[JUSTIFICADA] ', '').replace('[JUSTIFICADA]', '');
+          } else {
+            status = 'FALTA';
+            observacao = registro.justificativa || '';
+          }
+        }
+      }
+
       return {
         ...aluno,
         aluno_nome: aluno.aluno_nome || aluno.resp_nome || 'Aluno sem nome',
-        frequencia: registro
-          ? { status: registro.status, observacao: registro.observacao, id: registro.id }
-          : { status: 'PRESENTE', observacao: '' }, // default para facilidade na chamada
+        frequencia: {
+          status,
+          observacao,
+          id: registro?.id
+        }
       };
     });
   }
@@ -62,15 +87,21 @@ export class FrequenciasService {
 
     const supabase = this.supabaseService.getClient();
 
-    const payload = registros.map((r) => ({
-      aluno_id: r.aluno_id,
-      turma_id,
-      data: dataStr,
-      status: r.status,
-      observacao: r.observacao || null,
-    }));
+    const payload = registros.map((r) => {
+      const presente = r.status === 'PRESENTE';
+      let justificativa = r.observacao || null;
+      if (r.status === 'JUSTIFICADA') {
+        justificativa = `[JUSTIFICADA] ${r.observacao || ''}`.trim();
+      }
 
-    // Upsert na tabela frequencias usando a constraint única (aluno_id, data)
+      return {
+        aluno_id: r.aluno_id,
+        data: dataStr,
+        presente,
+        justificativa,
+      };
+    });
+
     const { data, error } = await supabase
       .from('frequencias')
       .upsert(payload, { onConflict: 'aluno_id,data' })
@@ -90,7 +121,7 @@ export class FrequenciasService {
     const { data: alunos, error: alunosError } = await supabase
       .from('alunos')
       .select('*, turmas(*)')
-      .ilike('status', 'ativo');
+      .neq('status', 'Inativo');
 
     if (alunosError) {
       throw new InternalServerErrorException("Erro ao buscar alunos para alertas: " + alunosError.message);
@@ -99,7 +130,6 @@ export class FrequenciasService {
     const alertas = [];
 
     for (const aluno of alunos || []) {
-      // Buscar histórico de chamadas recentes do aluno
       const { data: freqs, error: freqError } = await supabase
         .from('frequencias')
         .select('*')
@@ -111,10 +141,9 @@ export class FrequenciasService {
 
       let faltasConsecutivas = 0;
       for (const freq of freqs) {
-        if (freq.status === 'FALTA') {
+        if (freq.presente === false && (!freq.justificativa || !freq.justificativa.startsWith('[JUSTIFICADA]'))) {
           faltasConsecutivas++;
         } else {
-          // Interrompe a contagem se encontrar presença ou falta justificada
           break;
         }
       }
