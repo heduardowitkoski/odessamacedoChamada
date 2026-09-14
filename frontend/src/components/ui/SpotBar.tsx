@@ -5,9 +5,9 @@ export function SpotBar({ spots, total }: { spots: number; total: number }) {
   return (
     <div className="w-full">
       <div className="flex justify-between text-xs mb-1">
-        <span className="text-gray-400">{total - spots}/{total} alunos</span>
+        <span className="text-gray-400">Disponibilidade</span>
         <span className={`font-semibold ${isFull ? "text-red-500" : "text-emerald-600"}`}>
-          {isFull ? "Turma cheia" : `${spots} vaga${spots > 1 ? "s" : ""}`}
+          {isFull ? "Turma cheia" : "Há vagas"}
         </span>
       </div>
       <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">

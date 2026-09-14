@@ -95,8 +95,6 @@ export default function AdminDashboard() {
 
   const alunosAtivos = alunosDb.filter(a => a.status === 'Ativo');
   const alunosFila = alunosDb.filter(a => a.status === 'Fila');
-  
-  const vagasAbertas = turmasDb.reduce((acc, curr) => acc + (curr.capacidade > 0 ? curr.capacidade : 0), 0);
 
   const generateChartData = (alunos: any[]) => {
     const turmasCount = alunos.reduce((acc: any, curr: any) => {
@@ -227,7 +225,7 @@ export default function AdminDashboard() {
     { label: "Alunos matriculados", value: alunosAtivos.length, icon: <UserCheck size={20} />, color: "text-amber-600", bg: "bg-amber-100" },
     { label: "Na fila de espera", value: alunosFila.length, icon: <Clock size={20} />, color: "text-orange-600", bg: "bg-orange-100" },
     { label: "Alertas de faltas (3+)", value: alertasFaltas.length, icon: <AlertTriangle size={20} />, color: "text-red-600", bg: "bg-red-100" },
-    { label: "Vagas abertas", value: vagasAbertas, icon: <Pencil size={20} />, color: "text-emerald-600", bg: "bg-emerald-100" },
+    { label: "Turmas com vagas", value: turmasDb.filter(t => t.capacidade > 0).length, icon: <Pencil size={20} />, color: "text-emerald-600", bg: "bg-emerald-100" },
   ];
 
   return (

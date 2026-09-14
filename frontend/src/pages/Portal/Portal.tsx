@@ -206,7 +206,7 @@ export default function PortalScreen() {
                             <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full whitespace-nowrap">Turma cheia</span>
                           ) : (
                             <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full whitespace-nowrap">
-                              {spots} vaga{spots > 1 ? "s" : ""}
+                              Há vagas
                             </span>
                           )}
                         </div>
