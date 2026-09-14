@@ -17,10 +17,10 @@ export class SupabaseService {
       'base64'
     ).toString('utf-8');
 
-    const supabaseKey =
-      this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY') ||
-      this.configService.get<string>('SUPABASE_KEY') ||
-      fallbackServiceKey;
+    const envKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseKey = (envKey && envKey.includes('secret'))
+      ? envKey
+      : fallbackServiceKey;
 
     if (!supabaseUrl || !supabaseKey) {
       this.logger.error('Supabase URL and Key must be provided in environment variables.');
