@@ -84,10 +84,3 @@
 | `GET` | `/frequencias/alertas` | Retorna a lista de alunos ativos com 3+ faltas consecutivas |
 
 ---
-
-## 4. Próximos Passos Recomendados
-
-1. **Desenvolvimento da Exportação de Relatórios (CSV/PDF):**
-   - Implementar funcionalidade no botão "Exportar" do painel administrativo para baixar a lista de alunos e diário de classe.
-2. **Homologação e Capacitação Final:**
-   - Apresentação e treinamento com os educadores e a equipe gestora do CDE Odessa Macedo.
