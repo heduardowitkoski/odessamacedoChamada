@@ -26,7 +26,7 @@ export default function AdminDashboard() {
 
   // Estados para Criar Nova Turma
   const [showModalNovaTurma, setShowModalNovaTurma] = useState(false);
-  const [novaTurma, setNovaTurma] = useState({ nome: '', turno: '', capacidade: 15 });
+  const [novaTurma, setNovaTurma] = useState({ nome: '', turno: '', capacidade: 15, idade_minima: 5, idade_maxima: 17 });
   const [savingTurma, setSavingTurma] = useState(false);
 
   const navigate = useNavigate();

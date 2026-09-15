@@ -9,7 +9,6 @@ import {
 describe('AlunoValidator', () => {
   describe('validateCPF', () => {
     it('deve validar CPFs válidos', () => {
-      // CPFs válidos conhecidos para teste de algoritmo
       expect(validateCPF('52998224725')).toBe(true);
       expect(validateCPF('529.982.247-25')).toBe(true);
     });
@@ -51,27 +50,37 @@ describe('AlunoValidator', () => {
     });
 
     it('deve rejeitar telefones com DDD inválido ou quantidade incorreta de dígitos', () => {
-      expect(validatePhone('(05) 99999-0000')).toBe(false); // DDD 05 não existe
+      expect(validatePhone('(05) 99999-0000')).toBe(false);
       expect(validatePhone('12345')).toBe(false);
       expect(validatePhone('')).toBe(false);
     });
   });
 
   describe('validateBirthDate', () => {
-    it('deve aceitar data de nascimento coerente', () => {
+    it('deve aceitar data de nascimento em formato DD/MM/AAAA', () => {
+      const res = validateBirthDate('10/05/2015');
+      expect(res.valid).toBe(true);
+      expect(res.isoDate).toBe('2015-05-10');
+    });
+
+    it('deve aceitar data de nascimento em formato ISO YYYY-MM-DD', () => {
       const res = validateBirthDate('2015-05-10');
       expect(res.valid).toBe(true);
+      expect(res.isoDate).toBe('2015-05-10');
     });
 
     it('deve rejeitar data no futuro', () => {
-      const res = validateBirthDate('2099-01-01');
+      const res = validateBirthDate('01/01/2099');
       expect(res.valid).toBe(false);
       expect(res.message).toContain('futuro');
     });
 
     it('deve rejeitar aluno com menos de 3 anos', () => {
       const now = new Date();
-      const res = validateBirthDate(now.toISOString().split('T')[0]);
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const res = validateBirthDate(`${day}/${month}/${year}`);
       expect(res.valid).toBe(false);
       expect(res.message).toContain('3 anos');
     });
@@ -91,7 +100,63 @@ describe('AlunoValidator', () => {
       expect(fields).toContain('turma_id');
     });
 
-    it('deve retornar vazio quando payload está completamente válido', () => {
+    it('deve rejeitar CPF do responsável igual ao do aluno menor de idade', () => {
+      const payload = {
+        resp_nome: 'Responsavel Legal',
+        resp_cpf: '529.982.247-25',
+        resp_rg: '12345678',
+        resp_email: 'resp@email.com',
+        resp_telefone: '(53) 99123-4567',
+        resp_cep: '96400-010',
+        resp_endereco: 'Rua Sete, 100',
+        resp_bairro: 'Centro',
+        aluno_nome: 'Aluno Menor',
+        aluno_nascimento: '10/05/2015', // 10-11 anos (menor)
+        aluno_sexo: 'Masculino',
+        aluno_cpf: '529.982.247-25', // MESMO CPF!
+        aluno_escola: 'Escola Central',
+        aluno_experiencia: 'Nenhuma',
+        turma_id: 't-123',
+      };
+
+      const errors = validateAlunoPayload(payload);
+      const cpfError = errors.find((e) => e.field === 'resp_cpf');
+      expect(cpfError).toBeDefined();
+      expect(cpfError?.message).toContain('não pode ser igual');
+    });
+
+    it('deve rejeitar aluno fora da faixa etária da turma', () => {
+      const payload = {
+        resp_nome: 'Responsavel Legal',
+        resp_cpf: '529.982.247-25',
+        resp_rg: '12345678',
+        resp_email: 'resp@email.com',
+        resp_telefone: '(53) 99123-4567',
+        resp_cep: '96400-010',
+        resp_endereco: 'Rua Sete, 100',
+        resp_bairro: 'Centro',
+        aluno_nome: 'Aluno Juvenil',
+        aluno_nascimento: '10/05/2010', // ~16 anos
+        aluno_sexo: 'Feminino',
+        aluno_cpf: '',
+        aluno_escola: 'Escola Estadual',
+        aluno_experiencia: 'Nenhuma',
+        turma_id: 't-infantil',
+      };
+
+      const turmaInfantil = {
+        nome: 'Turma Infantil A - 5 a 7 anos',
+        idade_minima: 5,
+        idade_maxima: 7,
+      };
+
+      const errors = validateAlunoPayload(payload, turmaInfantil);
+      const turmaError = errors.find((e) => e.field === 'turma_id');
+      expect(turmaError).toBeDefined();
+      expect(turmaError?.message).toContain('não é permitida para esta turma');
+    });
+
+    it('deve retornar vazio quando payload está completamente válido e condizente com a turma', () => {
       const validPayload = {
         resp_nome: 'Maria da Silva',
         resp_cpf: '529.982.247-25',
@@ -102,7 +167,7 @@ describe('AlunoValidator', () => {
         resp_endereco: 'Rua Sete de Setembro, 500',
         resp_bairro: 'Centro, Bagé - RS',
         aluno_nome: 'João Pedro da Silva',
-        aluno_nascimento: '2014-06-15',
+        aluno_nascimento: '15/06/2014',
         aluno_sexo: 'Masculino',
         aluno_cpf: '',
         aluno_escola: 'Escola Silveira Martins',
@@ -110,7 +175,13 @@ describe('AlunoValidator', () => {
         turma_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       };
 
-      const errors = validateAlunoPayload(validPayload);
+      const turma = {
+        nome: 'Turma Juvenil A - 11 a 13 anos',
+        idade_minima: 11,
+        idade_maxima: 13,
+      };
+
+      const errors = validateAlunoPayload(validPayload, turma);
       expect(errors).toHaveLength(0);
     });
   });

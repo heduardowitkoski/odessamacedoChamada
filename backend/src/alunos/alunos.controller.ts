@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { AlunosService } from './alunos.service';
 
 @Controller('alunos')
@@ -22,5 +22,10 @@ export class AlunosController {
     @Body('turma_id') turma_id: string,
   ) {
     return this.alunosService.updateStatus(id, status, turma_id);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.alunosService.remove(id);
   }
 }
