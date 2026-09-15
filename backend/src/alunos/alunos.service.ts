@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { validateAlunoPayload } from './aluno-validator';
 
 @Injectable()
 export class AlunosService {
@@ -19,6 +20,15 @@ export class AlunosService {
   }
 
   async create(createAlunoDto: any) {
+    // 0. Validação rigorosa dos campos de inscrição
+    const validationErrors = validateAlunoPayload(createAlunoDto);
+    if (validationErrors.length > 0) {
+      throw new BadRequestException({
+        message: 'Existem campos inválidos ou não preenchidos na inscrição.',
+        errors: validationErrors,
+      });
+    }
+
     const supabase = this.supabaseService.getClient();
 
     // 1. Checar lotação da turma selecionada
