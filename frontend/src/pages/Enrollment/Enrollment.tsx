@@ -1,6 +1,6 @@
 import { useState, useEffect, type ChangeEvent, type FocusEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CheckCircle, AlertCircle, Pencil, ArrowRight, Loader2, UserCheck, ShieldAlert } from "lucide-react";
+import { CheckCircle, AlertCircle, Pencil, ArrowRight, Loader2, UserCheck } from "lucide-react";
 import { SpotBar } from "../../components/ui/SpotBar";
 
 type FormStep = 0 | 1 | 2 | 3;

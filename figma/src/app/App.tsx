@@ -455,7 +455,7 @@ function AlunoScreen() {
   const [turma, setTurma] = useState("");
   const [turno, setTurno] = useState<string[]>([]);
 
-  const steps = ["Responsável", "Aluno", "Turma", "Confirmação"];
+  const steps = ["Aluno", "Responsável", "Turma", "Confirmação"];
 
   const selectedTurma = TURMAS.find((t) => t.id === turma);
 
@@ -517,33 +517,8 @@ function AlunoScreen() {
             </div>
 
             <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-7">
-              {/* Step 0 — Responsável */}
+              {/* Step 0 — Aluno */}
               {step === 0 && (
-                <div>
-                  <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300] mb-1">Dados do responsável</h2>
-                  <p className="text-xs text-gray-400 mb-5">Para alunos menores de 18 anos, preencha os dados do responsável legal. Para adultos e melhor idade, preencha seus próprios dados.</p>
-                  <div className="grid grid-cols-2 gap-5">
-                    {[
-                      { label: "Nome completo", placeholder: "Nome do responsável ou do próprio aluno (adulto)", col: 2 },
-                      { label: "CPF", placeholder: "000.000.000-00", col: 1 },
-                      { label: "RG", placeholder: "0000000000", col: 1 },
-                      { label: "E-mail", placeholder: "email@exemplo.com", col: 1 },
-                      { label: "Telefone / WhatsApp", placeholder: "(53) 99999-0000", col: 1 },
-                      { label: "Endereço", placeholder: "Rua, número, bairro", col: 2 },
-                      { label: "CEP", placeholder: "96400-000", col: 1 },
-                      { label: "Bairro / Cidade", placeholder: "Bagé/RS", col: 1 },
-                    ].map(({ label, placeholder, col }) => (
-                      <div key={label} className={col === 2 ? "col-span-2" : ""}>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">{label}</label>
-                        <input placeholder={placeholder} className="w-full h-11 px-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white transition-colors" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Step 1 — Aluno */}
-              {step === 1 && (
                 <div>
                   <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300] mb-1">Dados do aluno</h2>
                   <p className="text-xs text-gray-400 mb-5">Preencha os dados de quem vai frequentar as aulas. A faixa etária determinará a turma disponível.</p>
@@ -574,6 +549,31 @@ function AlunoScreen() {
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5">Necessidades especiais ou observações</label>
                       <textarea rows={2} placeholder="Alergias a materiais, dificuldades motoras, etc..." className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white resize-none transition-colors" />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 1 — Responsável */}
+              {step === 1 && (
+                <div>
+                  <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300] mb-1">Dados do responsável</h2>
+                  <p className="text-xs text-gray-400 mb-5">Para alunos menores de 18 anos, preencha os dados do responsável legal. Para adultos e melhor idade, preencha seus próprios dados.</p>
+                  <div className="grid grid-cols-2 gap-5">
+                    {[
+                      { label: "Nome completo", placeholder: "Nome do responsável ou do próprio aluno (adulto)", col: 2 },
+                      { label: "CPF", placeholder: "000.000.000-00", col: 1 },
+                      { label: "RG", placeholder: "0000000000", col: 1 },
+                      { label: "E-mail", placeholder: "email@exemplo.com", col: 1 },
+                      { label: "Telefone / WhatsApp", placeholder: "(53) 99999-0000", col: 1 },
+                      { label: "Endereço", placeholder: "Rua, número, bairro", col: 2 },
+                      { label: "CEP", placeholder: "96400-000", col: 1 },
+                      { label: "Bairro / Cidade", placeholder: "Bagé/RS", col: 1 },
+                    ].map(({ label, placeholder, col }) => (
+                      <div key={label} className={col === 2 ? "col-span-2" : ""}>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">{label}</label>
+                        <input placeholder={placeholder} className="w-full h-11 px-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white transition-colors" />
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -635,8 +635,8 @@ function AlunoScreen() {
                   <p className="text-gray-500 text-sm mb-6">Verifique os dados antes de confirmar.</p>
                   <div className="space-y-3">
                     {[
-                      { section: "Responsável", items: ["Maria Souza", "CPF: 123.456.789-00", "(53) 99801-2345"], ok: true },
                       { section: "Aluno", items: ["Ana Beatriz Souza", "Nascimento: 14/03/2019 · 6 anos", "Sem experiência prévia"], ok: true },
+                      { section: "Responsável", items: ["Maria Souza", "CPF: 123.456.789-00", "(53) 99801-2345"], ok: true },
                       { section: "Turma selecionada", items: [
                         selectedTurma ? selectedTurma.label : "Nenhuma turma selecionada",
                         selectedTurma ? `Faixa: ${selectedTurma.faixa}` : "",
