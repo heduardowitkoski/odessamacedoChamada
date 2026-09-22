@@ -10,6 +10,26 @@ import { supabase } from "../../lib/supabase";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://odessamacedochamada.onrender.com";
 
+function extractAgeRange(nome: string): { idade_minima: number; idade_maxima: number } {
+  if (!nome) return { idade_minima: 0, idade_maxima: 120 };
+  const matchRange = nome.match(/(\d+)\s*a\s*(\d+)/i);
+  if (matchRange) {
+    return { idade_minima: parseInt(matchRange[1], 10), idade_maxima: parseInt(matchRange[2], 10) };
+  }
+  const matchPlus = nome.match(/(\d+)\s*\+/);
+  if (matchPlus) {
+    const min = parseInt(matchPlus[1], 10);
+    return { idade_minima: min, idade_maxima: min >= 60 ? 120 : 59 };
+  }
+  if (/infantil a/i.test(nome)) return { idade_minima: 5, idade_maxima: 7 };
+  if (/infantil b/i.test(nome)) return { idade_minima: 8, idade_maxima: 10 };
+  if (/juvenil a/i.test(nome)) return { idade_minima: 11, idade_maxima: 13 };
+  if (/juvenil b/i.test(nome)) return { idade_minima: 14, idade_maxima: 17 };
+  if (/adulto/i.test(nome)) return { idade_minima: 18, idade_maxima: 59 };
+  if (/melhor idade|idoso/i.test(nome)) return { idade_minima: 60, idade_maxima: 120 };
+  return { idade_minima: 0, idade_maxima: 120 };
+}
+
 export default function AdminDashboard() {
   const [alunosDb, setAlunosDb] = useState<any[]>([]);
   const [turmasDb, setTurmasDb] = useState<any[]>([]);
@@ -140,26 +160,24 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleCancel = async (aluno: any) => {
-    if(!window.confirm(`Deseja realmente cancelar a matrícula de ${aluno.aluno_nome}?`)) return;
+  const handleDelete = async (aluno: any) => {
+    if (!window.confirm(`Deseja realmente remover permanentemente o aluno ${aluno.aluno_nome || aluno.resp_nome} do banco de dados? Esta ação liberará a vaga na turma e apagará o cadastro definitivamente.`)) return;
     try {
-      const res = await fetch(`${API_BASE}/alunos/${aluno.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Inativo", turma_id: aluno.turma_id })
+      const res = await fetch(`${API_BASE}/alunos/${aluno.id}`, {
+        method: "DELETE"
       });
       if (res.ok) {
-        alert("Matrícula cancelada com sucesso!");
+        alert("Aluno removido com sucesso do banco de dados!");
         setSelectedAluno(null);
         fetchAlunos();
         fetchTurmas();
         fetchAlertasFaltas();
       } else {
         const err = await res.json();
-        alert("Erro ao cancelar: " + err.message);
+        alert("Erro ao excluir aluno: " + (err.message || "Tente novamente."));
       }
     } catch (e) {
-      alert("Erro de conexão");
+      alert("Erro de conexão com o servidor ao excluir aluno.");
     }
   };
 
@@ -226,13 +244,15 @@ export default function AdminDashboard() {
           nome: novaTurma.nome.trim(),
           turno: novaTurma.turno.trim(),
           capacidade: Number(novaTurma.capacidade) || 15,
+          idade_minima: Number(novaTurma.idade_minima) || 0,
+          idade_maxima: Number(novaTurma.idade_maxima) || 120,
         }),
       });
 
       if (res.ok) {
         alert("Nova turma criada com sucesso!");
         setShowModalNovaTurma(false);
-        setNovaTurma({ nome: '', turno: '', capacidade: 15 });
+        setNovaTurma({ nome: '', turno: '', capacidade: 15, idade_minima: 5, idade_maxima: 17 });
         fetchTurmas();
       } else {
         const err = await res.json();
@@ -240,12 +260,14 @@ export default function AdminDashboard() {
           nome: novaTurma.nome.trim(),
           turno: novaTurma.turno.trim(),
           capacidade: Number(novaTurma.capacidade) || 15,
+          idade_minima: Number(novaTurma.idade_minima) || 0,
+          idade_maxima: Number(novaTurma.idade_maxima) || 120,
         }]);
 
         if (!subErr) {
           alert("Nova turma criada com sucesso!");
           setShowModalNovaTurma(false);
-          setNovaTurma({ nome: '', turno: '', capacidade: 15 });
+          setNovaTurma({ nome: '', turno: '', capacidade: 15, idade_minima: 5, idade_maxima: 17 });
           fetchTurmas();
         } else {
           alert("Erro ao criar turma: " + (err.message || subErr.message || "Erro desconhecido"));
@@ -434,9 +456,12 @@ export default function AdminDashboard() {
                           <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300] mb-1">
                             {turma.nome}
                           </h3>
-                          <p className="text-xs text-amber-800 font-semibold mb-4">
+                          <p className="text-xs text-amber-800 font-semibold mb-2">
                             {turma.turno}
                           </p>
+                          <span className="inline-block text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md mb-4">
+                            Faixa etária: {turma.idade_minima != null ? turma.idade_minima : extractAgeRange(turma.nome).idade_minima} a {turma.idade_maxima != null ? turma.idade_maxima : extractAgeRange(turma.nome).idade_maxima} anos
+                          </span>
                         </div>
 
                         <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
@@ -489,10 +514,10 @@ export default function AdminDashboard() {
                             Contatar Resp.
                           </a>
                           <button
-                            onClick={() => handleCancel(aluno)}
+                            onClick={() => handleDelete(aluno)}
                             className="flex-1 text-xs bg-red-50 text-red-700 border border-red-200 py-1.5 rounded-lg font-semibold hover:bg-red-100 transition-colors"
                           >
-                            Inativar Vaga
+                            Excluir do Banco
                           </button>
                         </div>
                       </div>
@@ -829,8 +854,8 @@ export default function AdminDashboard() {
                     <button className="w-full h-10 bg-blue-50 text-blue-700 border border-blue-200 text-sm font-bold rounded-xl hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
                       <RefreshCw size={14} /> Transferir de turma
                     </button>
-                    <button onClick={() => handleCancel(selectedAluno)} className="w-full h-10 bg-red-50 text-red-700 border border-red-200 text-sm font-bold rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
-                      <UserX size={14} /> Cancelar matrícula
+                    <button onClick={() => handleDelete(selectedAluno)} className="w-full h-10 bg-red-50 text-red-700 border border-red-200 text-sm font-bold rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                      <UserX size={14} /> Excluir aluno do banco
                     </button>
                   </div>
                 </div>
@@ -908,6 +933,37 @@ export default function AdminDashboard() {
                   onChange={(e) => setNovaTurma({ ...novaTurma, capacidade: Number(e.target.value) })}
                   className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Idade Mínima (anos) *
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    required
+                    value={novaTurma.idade_minima}
+                    onChange={(e) => setNovaTurma({ ...novaTurma, idade_minima: Number(e.target.value) })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Idade Máxima (anos) *
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    required
+                    value={novaTurma.idade_maxima}
+                    onChange={(e) => setNovaTurma({ ...novaTurma, idade_maxima: Number(e.target.value) })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
