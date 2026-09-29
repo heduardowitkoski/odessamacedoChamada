@@ -6,6 +6,8 @@ import { SupabaseModule } from './supabase/supabase.module';
 import { TurmasModule } from './turmas/turmas.module';
 import { AlunosModule } from './alunos/alunos.module';
 import { FrequenciasModule } from './frequencias/frequencias.module';
+import { EmailModule } from './email/email.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -13,10 +15,11 @@ import { FrequenciasModule } from './frequencias/frequencias.module';
     SupabaseModule, 
     TurmasModule, 
     AlunosModule,
-    FrequenciasModule
+    FrequenciasModule,
+    EmailModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-

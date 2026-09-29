@@ -159,4 +159,92 @@ export class FrequenciasService {
 
     return alertas;
   }
+
+  async buscarMinhasFaltasPorEmail(email: string) {
+    if (!email) {
+      throw new BadRequestException('E-mail do responsável é obrigatório.');
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const supabase = this.supabaseService.getClient();
+
+    // 1. Buscar alunos ativos associados a este e-mail
+    const { data: alunos, error: alunosError } = await supabase
+      .from('alunos')
+      .select('*, turmas(*)')
+      .ilike('resp_email', cleanEmail)
+      .neq('status', 'Inativo')
+      .order('aluno_nome', { ascending: true });
+
+    if (alunosError) {
+      throw new InternalServerErrorException('Erro ao buscar alunos: ' + alunosError.message);
+    }
+
+    if (!alunos || alunos.length === 0) {
+      return { alunos: [] };
+    }
+
+    const resultadoAlunos = [];
+
+    for (const aluno of alunos) {
+      // 2. Buscar todas as frequências do aluno ordenadas por data
+      const { data: freqs, error: freqsError } = await supabase
+        .from('frequencias')
+        .select('*')
+        .eq('aluno_id', aluno.id)
+        .order('data', { ascending: false });
+
+      if (freqsError) {
+        throw new InternalServerErrorException('Erro ao buscar frequências: ' + freqsError.message);
+      }
+
+      const historico = (freqs || []).map((f: any) => {
+        let status: 'PRESENTE' | 'FALTA' | 'JUSTIFICADA' = 'PRESENTE';
+        let justificativa = f.justificativa || '';
+
+        if (f.presente) {
+          status = 'PRESENTE';
+        } else if (justificativa && justificativa.startsWith('[JUSTIFICADA]')) {
+          status = 'JUSTIFICADA';
+          justificativa = justificativa.replace('[JUSTIFICADA]', '').trim();
+        } else {
+          status = 'FALTA';
+        }
+
+        return {
+          id: f.id,
+          data: f.data,
+          status,
+          justificativa,
+        };
+      });
+
+      const totalAulas = historico.length;
+      const presencas = historico.filter((h) => h.status === 'PRESENTE').length;
+      const justificadas = historico.filter((h) => h.status === 'JUSTIFICADA').length;
+      const faltas = historico.filter((h) => h.status === 'FALTA').length;
+      const frequenciaPercentual = totalAulas > 0
+        ? Math.round(((presencas + justificadas) / totalAulas) * 100)
+        : 100;
+
+      resultadoAlunos.push({
+        id: aluno.id,
+        aluno_nome: aluno.aluno_nome,
+        resp_nome: aluno.resp_nome,
+        resp_email: aluno.resp_email,
+        resp_telefone: aluno.resp_telefone,
+        turma: aluno.turmas,
+        status: aluno.status,
+        stats: {
+          totalAulas,
+          presencas,
+          faltas,
+          justificadas,
+          frequenciaPercentual,
+        },
+        historico,
+      });
+    }
+
+    return { alunos: resultadoAlunos };
+  }
 }

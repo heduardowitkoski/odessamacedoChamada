@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AlunosService } from './alunos.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { EmailService } from '../email/email.service';
 
 describe('AlunosService', () => {
   let service: AlunosService;
@@ -24,11 +26,21 @@ describe('AlunosService', () => {
     getClient: jest.fn().mockReturnValue(mockSupabaseClient),
   };
 
+  const mockEmailService = {
+    enviarEmailAlunoChamado: jest.fn().mockResolvedValue({ success: true }),
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue('http://localhost:5173'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AlunosService,
         { provide: SupabaseService, useValue: mockSupabaseService },
+        { provide: EmailService, useValue: mockEmailService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 

@@ -1,11 +1,19 @@
-import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
+import { EmailService } from '../email/email.service';
 import { validateAlunoPayload, parseDateString, calculateAge } from './aluno-validator';
 import { extractAgeRange } from '../turmas/turmas.service';
 
 @Injectable()
 export class AlunosService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  private readonly logger = new Logger(AlunosService.name);
+
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async findAll() {
     const { data, error } = await this.supabaseService
@@ -151,7 +159,7 @@ export class AlunosService {
     // 1. Buscar a turma atual para verificação de vagas se for mudar para Ativo
     const { data: turma } = await supabase
       .from('turmas')
-      .select('capacidade')
+      .select('*')
       .eq('id', turma_id)
       .single();
 
@@ -163,25 +171,131 @@ export class AlunosService {
       throw new BadRequestException('Não há vagas disponíveis nesta turma.');
     }
 
-    // 2. Atualizar o status do aluno
+    // 2. Buscar o aluno atual para saber seu status anterior e dados de contato
+    const { data: alunoAtual } = await supabase
+      .from('alunos')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!alunoAtual) {
+      throw new BadRequestException('Aluno não encontrado.');
+    }
+
+    const estavaNaFila = alunoAtual.status === 'Fila';
+
+    // 3. Atualizar o status do aluno (e turma vinculada)
     const { data: aluno, error } = await supabase
       .from('alunos')
-      .update({ status: novoStatus })
+      .update({ status: novoStatus, turma_id })
       .eq('id', id)
-      .select()
+      .select('*, turmas(*)')
       .single();
 
     if (error) {
       throw new InternalServerErrorException(error.message);
     }
 
-    // 3. Ajustar vagas da turma
+    // 4. Ajustar vagas da turma
     if (novoStatus === 'Inativo') {
       await supabase.from('turmas').update({ capacidade: turma.capacidade + 1 }).eq('id', turma_id);
     } else if (novoStatus === 'Ativo') {
       await supabase.from('turmas').update({ capacidade: turma.capacidade - 1 }).eq('id', turma_id);
     }
 
-    return aluno;
+    // 5. Se estava na fila e virou Ativo, cria o usuário e envia o e-mail
+    let action_link: string | null = null;
+    let email_enviado = false;
+
+    if (estavaNaFila && novoStatus === 'Ativo' && aluno.resp_email) {
+      try {
+        const respEmail = aluno.resp_email.trim().toLowerCase();
+
+        // Verifica se usuário já existe no Supabase Auth
+        const { data: usersData } = await supabase.auth.admin.listUsers();
+        const existingUser = (usersData?.users || []).find(
+          (u: any) => u.email?.toLowerCase() === respEmail,
+        );
+
+        if (!existingUser) {
+          await supabase.auth.admin.createUser({
+            email: respEmail,
+            password: crypto.randomUUID(),
+            email_confirm: true,
+            user_metadata: {
+              role: 'responsavel',
+              nome: aluno.resp_nome,
+              aluno_id: aluno.id,
+              aluno_nome: aluno.aluno_nome,
+            },
+          });
+        }
+
+        // Gera o link de primeiro acesso / definição de senha
+        const frontendUrl =
+          this.configService.get<string>('FRONTEND_URL') ||
+          'https://odessamacedo-chamada.vercel.app';
+
+        const { data: linkData, error: linkError } =
+          await supabase.auth.admin.generateLink({
+            type: 'recovery',
+            email: respEmail,
+            options: {
+              redirectTo: `${frontendUrl}/redefinir-senha`,
+            },
+          });
+
+        if (linkError) {
+          this.logger.error(
+            `Erro ao gerar link de recovery para ${respEmail}: ${linkError.message}`,
+          );
+        } else {
+          action_link = linkData?.properties?.action_link || null;
+        }
+
+        if (action_link) {
+          const emailRes = await this.emailService.enviarEmailAlunoChamado({
+            resp_nome: aluno.resp_nome,
+            resp_email: respEmail,
+            aluno_nome: aluno.aluno_nome,
+            turma_nome: turma.nome,
+            turma_turno: turma.turno,
+            action_link,
+          });
+          email_enviado = emailRes.success;
+        }
+      } catch (err: any) {
+        this.logger.error(
+          `Falha ao processar criação de usuário ou e-mail para ${aluno.resp_email}: ${err.message}`,
+        );
+      }
+    }
+
+    return {
+      aluno,
+      action_link,
+      email_enviado,
+      message:
+        estavaNaFila && novoStatus === 'Ativo'
+          ? 'Aluno chamado da fila com sucesso!'
+          : 'Status do aluno atualizado com sucesso.',
+    };
+  }
+
+  async findByRespEmail(email: string) {
+    if (!email) return [];
+    const cleanEmail = email.trim().toLowerCase();
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('alunos')
+      .select('*, turmas(*)')
+      .ilike('resp_email', cleanEmail)
+      .neq('status', 'Inativo')
+      .order('aluno_nome', { ascending: true });
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+    return data || [];
   }
 }

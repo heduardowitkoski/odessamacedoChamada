@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, MoreHorizontal, UserX, RefreshCw, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle
+  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, MoreHorizontal, UserX, RefreshCw, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Avatar } from "../../components/ui/Avatar";
@@ -49,6 +49,24 @@ export default function AdminDashboard() {
   const [novaTurma, setNovaTurma] = useState({ nome: '', turno: '', capacidade: 15, idade_minima: 5, idade_maxima: 17 });
   const [savingTurma, setSavingTurma] = useState(false);
 
+  // Estados para Gestão de Administradores
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [showModalNovoAdmin, setShowModalNovoAdmin] = useState(false);
+  const [novoAdmin, setNovoAdmin] = useState({ nome: '', email: '', password: '' });
+  const [savingAdmin, setSavingAdmin] = useState(false);
+
+  // Estados para Chamar Aluno da Fila & Envio de E-mail
+  const [alunoParaChamar, setAlunoParaChamar] = useState<any>(null);
+  const [turmaDestinoChamar, setTurmaDestinoChamar] = useState<string>('');
+  const [chamandoAluno, setChamandoAluno] = useState(false);
+  const [resultadoChamada, setResultadoChamada] = useState<{
+    aluno: any;
+    action_link: string | null;
+    email_enviado: boolean;
+  } | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   const navigate = useNavigate();
 
   const fetchAlunos = () => {
@@ -95,10 +113,25 @@ export default function AdminDashboard() {
       .catch(err => console.error(err));
   };
 
+  const fetchAdmins = () => {
+    setLoadingAdmins(true);
+    fetch(`${API_BASE}/admin/usuarios`)
+      .then(res => res.json())
+      .then(data => {
+        setAdmins(Array.isArray(data) ? data : []);
+        setLoadingAdmins(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoadingAdmins(false);
+      });
+  };
+
   useEffect(() => {
     fetchAlunos();
     fetchTurmas();
     fetchAlertasFaltas();
+    fetchAdmins();
   }, []);
 
   useEffect(() => {
@@ -139,24 +172,101 @@ export default function AdminDashboard() {
 
   const chartData = generateChartData(alunosAtivos);
 
-  const handleCall = async (aluno: any) => {
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!novoAdmin.email.trim() || !novoAdmin.password) {
+      alert("Por favor, preencha o e-mail e a senha.");
+      return;
+    }
+    if (novoAdmin.password.length < 6) {
+      alert("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+    setSavingAdmin(true);
     try {
-      const res = await fetch(`${API_BASE}/alunos/${aluno.id}/status`, {
-        method: "PATCH",
+      const res = await fetch(`${API_BASE}/admin/usuarios`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Ativo", turma_id: aluno.turma_id })
+        body: JSON.stringify(novoAdmin),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Novo administrador cadastrado com sucesso!");
+        setShowModalNovoAdmin(false);
+        setNovoAdmin({ nome: '', email: '', password: '' });
+        fetchAdmins();
+      } else {
+        alert("Erro ao criar administrador: " + (data.message || "Erro desconhecido"));
+      }
+    } catch (e) {
+      alert("Erro de conexão ao criar administrador.");
+    } finally {
+      setSavingAdmin(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (admin: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email?.toLowerCase() === admin.email?.toLowerCase()) {
+      alert("Você não pode excluir sua própria conta de administrador enquanto estiver conectado.");
+      return;
+    }
+    if (!window.confirm(`Deseja realmente remover o administrador ${admin.nome || admin.email}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/admin/usuarios/${admin.id}`, {
+        method: "DELETE",
       });
       if (res.ok) {
-        alert("Aluno chamado com sucesso!");
-        fetchAlunos();
-        fetchTurmas();
-        fetchAlertasFaltas();
+        alert("Administrador removido com sucesso!");
+        fetchAdmins();
       } else {
         const err = await res.json();
-        alert("Erro ao chamar aluno: " + err.message);
+        alert("Erro ao remover: " + err.message);
       }
     } catch (e) {
       alert("Erro de conexão");
+    }
+  };
+
+  const abrirModalChamar = (aluno: any) => {
+    setAlunoParaChamar(aluno);
+    setTurmaDestinoChamar(aluno.turma_id);
+    setCopiedLink(false);
+  };
+
+  const handleConfirmChamar = async () => {
+    if (!alunoParaChamar) return;
+    setChamandoAluno(true);
+    try {
+      const res = await fetch(`${API_BASE}/alunos/${alunoParaChamar.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "Ativo",
+          turma_id: turmaDestinoChamar || alunoParaChamar.turma_id,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        fetchAlunos();
+        fetchTurmas();
+        fetchAlertasFaltas();
+        setResultadoChamada({
+          aluno: data.aluno || alunoParaChamar,
+          action_link: data.action_link || null,
+          email_enviado: !!data.email_enviado,
+        });
+        setAlunoParaChamar(null);
+      } else {
+        alert("Erro ao chamar aluno: " + (data.message || "Erro desconhecido"));
+      }
+    } catch (e) {
+      alert("Erro de conexão ao chamar aluno.");
+    } finally {
+      setChamandoAluno(false);
     }
   };
 
@@ -291,6 +401,7 @@ export default function AdminDashboard() {
       badgeColor: "bg-red-500" 
     },
     { icon: <BookOpen size={17} />, label: "Turmas" },
+    { icon: <ShieldCheck size={17} />, label: "Administradores", badge: admins.length },
     { icon: <BarChart2 size={17} />, label: "Relatórios" },
     { icon: <Settings size={17} />, label: "Configurações" },
   ];
@@ -367,6 +478,8 @@ export default function AdminDashboard() {
                 ? "Registro de Frequência e Chamada Diária" 
                 : activeMenu === "Turmas" 
                 ? "Gestão de Turmas e Vagas" 
+                : activeMenu === "Administradores"
+                ? "Gestão de Administradores"
                 : "Gestão de Alunos · Aulas de Desenho"}
             </h1>
           </div>
@@ -386,6 +499,13 @@ export default function AdminDashboard() {
                 className="flex items-center gap-2 text-sm text-white bg-amber-500 font-bold rounded-xl px-3.5 py-2 hover:bg-amber-600 transition-colors shadow-xs cursor-pointer"
               >
                 <Plus size={15} /> Nova turma
+              </button>
+            ) : activeMenu === "Administradores" ? (
+              <button 
+                onClick={() => setShowModalNovoAdmin(true)} 
+                className="flex items-center gap-2 text-sm text-white bg-amber-500 font-bold rounded-xl px-3.5 py-2 hover:bg-amber-600 transition-colors shadow-xs cursor-pointer"
+              >
+                <Plus size={15} /> Novo Administrador
               </button>
             ) : (
               <Link to="/inscrever" className="flex items-center gap-2 text-sm text-white bg-amber-500 font-medium rounded-xl px-3 py-2 hover:bg-amber-600 transition-colors">
@@ -662,6 +782,77 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
+          ) : activeMenu === "Administradores" ? (
+            /* --- MÓDULO DE GESTÃO DE ADMINISTRADORES --- */
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                  <div>
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
+                      Administradores do Sistema ({admins.length})
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      Gerencie a equipe autorizada a acessar o painel administrativo da Secretaria de Cultura.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowModalNovoAdmin(true)}
+                    className="text-xs text-white bg-amber-500 font-bold px-4 py-2.5 rounded-xl hover:bg-amber-600 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Plus size={15} /> Novo Administrador
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400">
+                        <th className="px-6 py-3">Nome</th>
+                        <th className="px-6 py-3">E-mail</th>
+                        <th className="px-6 py-3">Perfil</th>
+                        <th className="px-6 py-3">Cadastrado em</th>
+                        <th className="px-6 py-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 text-sm">
+                      {admins.map((adm) => (
+                        <tr key={adm.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="px-6 py-4 font-semibold text-gray-900">
+                            {adm.nome || "Administrador"}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600 font-mono text-xs">
+                            {adm.email}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              <ShieldCheck size={12} /> Administrador
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-500">
+                            {adm.created_at ? new Date(adm.created_at).toLocaleDateString() : "—"}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleDeleteAdmin(adm)}
+                              className="px-3 py-1.5 text-xs text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg font-semibold transition-colors flex items-center gap-1 ml-auto cursor-pointer"
+                            >
+                              <Trash2 size={13} /> Remover
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {admins.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm">
+                            {loadingAdmins ? "Carregando administradores..." : "Nenhum administrador encontrado."}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           ) : (
             /* --- DASHBOARD / VISÃO DE ALUNOS --- */
             <div className="flex gap-6">
@@ -759,7 +950,7 @@ export default function AdminDashboard() {
                             </td>
                             <td className="px-6 py-3 text-xs text-gray-500">{new Date(f.created_at).toLocaleDateString()}</td>
                             <td className="px-6 py-3">
-                              <button onClick={() => handleCall(f)} className="text-xs px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center gap-1">
+                              <button onClick={() => abrirModalChamar(f)} className="text-xs px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center gap-1 cursor-pointer">
                                 <UserCheck size={11} /> Chamar
                               </button>
                             </td>
@@ -983,6 +1174,292 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Novo Administrador */}
+      {showModalNovoAdmin && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-amber-100">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                    Novo Administrador
+                  </h3>
+                  <p className="text-xs text-gray-400">Cadastre um novo usuário com acesso administrativo</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowModalNovoAdmin(false)}
+                className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAdmin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Nome Completo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Nome do servidor ou gestor"
+                  value={novoAdmin.nome}
+                  onChange={(e) => setNovoAdmin({ ...novoAdmin, nome: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  E-mail Administrativo *
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="admin@cultura.bage.rs.gov.br"
+                  value={novoAdmin.email}
+                  onChange={(e) => setNovoAdmin({ ...novoAdmin, email: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Senha Inicial (mínimo 6 caracteres) *
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="••••••••"
+                  value={novoAdmin.password}
+                  onChange={(e) => setNovoAdmin({ ...novoAdmin, password: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowModalNovoAdmin(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingAdmin}
+                  className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {savingAdmin ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" /> Cadastrando...
+                    </>
+                  ) : (
+                    "Cadastrar Administrador"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirmar Chamada da Fila e Envio de E-mail */}
+      {alunoParaChamar && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-amber-100">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-green-50 text-green-700 flex items-center justify-center font-bold">
+                  <UserCheck size={20} />
+                </div>
+                <div>
+                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                    Chamar Aluno da Fila de Espera
+                  </h3>
+                  <p className="text-xs text-gray-400">Confirmação de matrícula e envio automático de acesso</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAlunoParaChamar(null)}
+                className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 text-xs space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Aluno:</span>
+                  <span className="font-bold text-gray-900">{alunoParaChamar.aluno_nome}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Responsável:</span>
+                  <span className="font-semibold text-gray-800">{alunoParaChamar.resp_nome}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">E-mail:</span>
+                  <span className="font-semibold text-amber-900">{alunoParaChamar.resp_email || "Não informado"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Telefone / WhatsApp:</span>
+                  <span className="font-semibold text-gray-800">{alunoParaChamar.resp_telefone}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Confirmar Turma de Destino *
+                </label>
+                <select
+                  value={turmaDestinoChamar}
+                  onChange={(e) => setTurmaDestinoChamar(e.target.value)}
+                  className="w-full h-11 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                >
+                  {turmasDb.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nome} ({t.turno}) — Vagas disponíveis: {t.capacidade}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-3.5 bg-gray-50 border border-gray-200/80 rounded-xl text-xs text-gray-600 leading-relaxed space-y-1">
+                <p className="font-semibold text-gray-800 flex items-center gap-1.5">
+                  <Mail size={13} className="text-amber-600" /> O que acontecerá ao confirmar:
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-gray-600 text-[11px]">
+                  <li>O status do aluno mudará para <strong>Ativo</strong> e 1 vaga será deduzida da turma.</li>
+                  <li>Um usuário com perfil de <strong>Responsável</strong> será criado no sistema.</li>
+                  <li>Um e-mail será enviado com as informações da turma e o link para definição de senha.</li>
+                  <li>O responsável poderá acompanhar as presenças e faltas do aluno.</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setAlunoParaChamar(null)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmChamar}
+                  disabled={chamandoAluno}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                >
+                  {chamandoAluno ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" /> Processando chamada...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={14} /> Confirmar e Enviar E-mail
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Resultado da Chamada com Link de Acesso / WhatsApp */}
+      {resultadoChamada && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-green-200">
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 bg-green-100 text-green-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <CheckCircle size={30} />
+              </div>
+              <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-gray-900">
+                Aluno Matriculado com Sucesso!
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                <strong>{resultadoChamada.aluno.aluno_nome}</strong> agora está com status Ativo na turma.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50/80 border border-green-200 rounded-2xl text-xs text-green-900 flex items-start gap-2.5">
+                <Mail size={16} className="text-green-700 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">E-mail transacional gerado com sucesso</p>
+                  <p className="text-[11px] text-green-800 mt-0.5">
+                    As instruções de acesso e detalhes da turma foram enviadas para <strong>{resultadoChamada.aluno.resp_email || "o e-mail informado"}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {resultadoChamada.action_link && (
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                      <Copy size={13} className="text-amber-600" /> Link de Primeiro Acesso (Backup / WhatsApp)
+                    </span>
+                    {copiedLink && (
+                      <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                        Copiado!
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    readOnly
+                    value={resultadoChamada.action_link}
+                    className="w-full h-9 px-3 text-xs bg-white border border-gray-200 rounded-lg text-gray-600 font-mono select-all"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(resultadoChamada.action_link || "");
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 3000);
+                      }}
+                      className="flex-1 py-2 px-3 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Copy size={13} /> Copiar Link
+                    </button>
+
+                    {resultadoChamada.aluno.resp_telefone && (
+                      <a
+                        href={`https://wa.me/55${resultadoChamada.aluno.resp_telefone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                          `Olá ${resultadoChamada.aluno.resp_nome}! Temos uma ótima notícia: o(a) aluno(a) ${resultadoChamada.aluno.aluno_nome} foi chamado(a) da fila e está matriculado(a) nas aulas de desenho do CDE Odessa Macedo! Para acompanhar a frequência e faltas, defina sua senha de acesso pelo link: ${resultadoChamada.action_link}`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 py-2 px-3 text-xs font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Phone size={13} /> Enviar no WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setResultadoChamada(null)}
+                  className="w-full py-2.5 px-4 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-xs cursor-pointer"
+                >
+                  Concluir
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

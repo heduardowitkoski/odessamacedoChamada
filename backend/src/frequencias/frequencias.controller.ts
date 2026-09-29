@@ -27,4 +27,9 @@ export class FrequenciasController {
   async getAlertas() {
     return this.frequenciasService.buscarAlertasFaltas();
   }
+
+  @Get('minhas-faltas')
+  async getMinhasFaltas(@Query('email') email: string) {
+    return this.frequenciasService.buscarMinhasFaltasPorEmail(email);
+  }
 }

@@ -10,6 +10,11 @@ export class AlunosController {
     return this.alunosService.findAll();
   }
 
+  @Get('responsavel/:email')
+  async findByRespEmail(@Param('email') email: string) {
+    return this.alunosService.findByRespEmail(email);
+  }
+
   @Post()
   async create(@Body() createAlunoDto: any) {
     return this.alunosService.create(createAlunoDto);

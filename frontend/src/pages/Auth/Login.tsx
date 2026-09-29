@@ -15,7 +15,7 @@ export default function LoginScreen() {
     setLoading(true);
     setError('');
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -24,7 +24,12 @@ export default function LoginScreen() {
       setError('E-mail ou senha incorretos.');
       setLoading(false);
     } else {
-      navigate('/admin');
+      const role = data.user?.user_metadata?.role;
+      if (role === 'responsavel') {
+        navigate('/responsavel');
+      } else {
+        navigate('/admin');
+      }
     }
   };
 
