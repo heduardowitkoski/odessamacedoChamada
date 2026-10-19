@@ -137,4 +137,105 @@ Link de Primeiro Acesso / Troca de Senha: ${dados.action_link}`);
       return { success: false, error: err.message };
     }
   }
+
+  async enviarEmailAlertaFaltas(dados: {
+    resp_nome: string;
+    resp_email: string;
+    aluno_nome: string;
+    turma_nome: string;
+    turma_turno: string;
+    faltas_consecutivas: number;
+    ultima_falta: string;
+  }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const from =
+      this.configService.get<string>('SMTP_FROM') ||
+      '"CDE Odessa Macedo" <nao-responda@cultura.bage.rs.gov.br>';
+
+    const subject = `⚠️ Atenção: ${dados.aluno_nome} possui ${dados.faltas_consecutivas} faltas consecutivas`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #FAFAF7; margin: 0; padding: 24px; color: #1C1300; }
+    .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 18px; border: 1px solid #FCA5A5; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .header { background: linear-gradient(135deg, #DC2626, #B91C1C); padding: 32px 24px; text-align: center; color: #ffffff; }
+    .header h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.9; }
+    .content { padding: 32px 28px; }
+    .alert-box { background-color: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 14px; padding: 18px; margin-bottom: 24px; text-align: center; }
+    .alert-number { font-size: 48px; font-weight: 900; color: #DC2626; line-height: 1; }
+    .alert-label { font-size: 13px; color: #7F1D1D; font-weight: 600; margin-top: 4px; }
+    .turma-box { background-color: #FEF3C7; border: 1px solid #FCD34D; border-radius: 14px; padding: 18px; margin-bottom: 24px; }
+    .turma-title { font-size: 12px; text-transform: uppercase; font-weight: bold; color: #92400E; margin-bottom: 8px; }
+    .turma-detail { font-size: 15px; font-weight: bold; color: #1F2937; margin: 4px 0; }
+    .turma-sub { font-size: 13px; color: #6B7280; margin: 2px 0 0 0; }
+    .info { font-size: 13px; line-height: 1.7; color: #4B5563; margin-bottom: 24px; }
+    .warning { background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 0 10px 10px 0; font-size: 12px; color: #78350F; margin-bottom: 24px; }
+    .footer { text-align: center; font-size: 11px; color: #9CA3AF; border-top: 1px solid #F3F4F6; padding: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>⚠️ Aviso de Absenteísmo</h1>
+      <p>CDE Odessa Macedo · Centro de Desenvolvimento da Expressão</p>
+    </div>
+    <div class="content">
+      <p class="info">Olá, <strong>${dados.resp_nome}</strong>!</p>
+      <p class="info">
+        Estamos entrando em contato para informar que o(a) aluno(a) <strong>${dados.aluno_nome}</strong>
+        apresentou faltas consecutivas nas aulas de desenho do CDE Odessa Macedo.
+      </p>
+
+      <div class="alert-box">
+        <div class="alert-number">${dados.faltas_consecutivas}</div>
+        <div class="alert-label">faltas consecutivas registradas</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Última falta: ${dados.ultima_falta}</div>
+      </div>
+
+      <div class="turma-box">
+        <div class="turma-title">Turma do Aluno</div>
+        <div class="turma-detail">🎨 ${dados.turma_nome}</div>
+        <div class="turma-sub">⏰ Turno / Horário: <strong>${dados.turma_turno}</strong></div>
+      </div>
+
+      <div class="warning">
+        <strong>⚠️ Atenção:</strong> O regulamento do CDE Odessa Macedo exige frequência mínima de <strong>75%</strong> para manutenção da vaga.
+        Alunos com muitas faltas não justificadas poderão ter suas vagas redistribuídas para candidatos da fila de espera.
+      </div>
+
+      <p class="info">
+        Caso o(a) aluno(a) não possa comparecer às aulas por algum motivo, pedimos que entre em contato com a coordenação
+        do programa para justificar as ausências e garantir a manutenção da vaga.
+      </p>
+    </div>
+    <div class="footer">
+      Prefeitura Municipal de Bagé · Secretaria Municipal de Cultura<br>
+      Centro de Desenvolvimento da Expressão Odessa Macedo
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    if (!this.transporter) {
+      this.logger.warn(`[SIMULAÇÃO - ALERTA FALTAS]
+Para: ${dados.resp_email}
+Assunto: ${subject}
+Aluno: ${dados.aluno_nome} | Faltas consecutivas: ${dados.faltas_consecutivas}`);
+      return { success: true, messageId: 'simulated-alerta-' + Date.now() };
+    }
+
+    try {
+      const info = await this.transporter.sendMail({ from, to: dados.resp_email, subject, html });
+      this.logger.log(`E-mail de alerta enviado para ${dados.resp_email} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (err: any) {
+      this.logger.error(`Erro ao enviar alerta para ${dados.resp_email}: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
 }

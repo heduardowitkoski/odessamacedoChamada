@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { EmailService } from '../email/email.service';
 
 export interface RegistroFrequenciaDto {
   aluno_id: string;
@@ -9,7 +10,10 @@ export interface RegistroFrequenciaDto {
 
 @Injectable()
 export class FrequenciasService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async buscarPorTurmaEData(turma_id: string, dataStr: string) {
     const supabase = this.supabaseService.getClient();
@@ -246,5 +250,106 @@ export class FrequenciasService {
     }
 
     return { alunos: resultadoAlunos };
+  }
+
+  async exportarCSV(turmaId?: string, dataInicio?: string, dataFim?: string): Promise<string> {
+    const supabase = this.supabaseService.getClient();
+
+    // Busca alunos (filtrado por turma se fornecido)
+    let alunosQuery = supabase
+      .from('alunos')
+      .select('*, turmas(*)')
+      .neq('status', 'Inativo')
+      .order('aluno_nome', { ascending: true });
+
+    if (turmaId) {
+      alunosQuery = alunosQuery.eq('turma_id', turmaId);
+    }
+
+    const { data: alunos, error: alunosError } = await alunosQuery;
+    if (alunosError) throw new InternalServerErrorException(alunosError.message);
+
+    const linhas: string[] = [];
+    linhas.push('Aluno;Turma;Turno;Status Matrícula;Total Aulas;Presenças;Faltas;Faltas Justificadas;% Frequência');
+
+    for (const aluno of alunos || []) {
+      let freqQuery = supabase
+        .from('frequencias')
+        .select('*')
+        .eq('aluno_id', aluno.id)
+        .order('data', { ascending: true });
+
+      if (dataInicio) freqQuery = freqQuery.gte('data', dataInicio);
+      if (dataFim) freqQuery = freqQuery.lte('data', dataFim);
+
+      const { data: freqs } = await freqQuery;
+      const historico = freqs || [];
+      const totalAulas = historico.length;
+      const presencas = historico.filter((f: any) => f.presente).length;
+      const justificadas = historico.filter(
+        (f: any) => !f.presente && f.justificativa?.startsWith('[JUSTIFICADA]'),
+      ).length;
+      const faltas = totalAulas - presencas - justificadas;
+      const pct = totalAulas > 0 ? Math.round(((presencas + justificadas) / totalAulas) * 100) : 100;
+
+      linhas.push(
+        [
+          aluno.aluno_nome,
+          aluno.turmas?.nome || '',
+          aluno.turmas?.turno || '',
+          aluno.status,
+          totalAulas,
+          presencas,
+          faltas,
+          justificadas,
+          `${pct}%`,
+        ].join(';'),
+      );
+    }
+
+    return linhas.join('\n');
+  }
+
+  async enviarEmailAlertaFaltas(alunoId: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = this.supabaseService.getClient();
+
+    const { data: aluno } = await supabase
+      .from('alunos')
+      .select('*, turmas(*)')
+      .eq('id', alunoId)
+      .single();
+
+    if (!aluno || !aluno.resp_email) {
+      throw new BadRequestException('Aluno não encontrado ou sem e-mail de responsável.');
+    }
+
+    // Calcula faltas consecutivas
+    const { data: freqs } = await supabase
+      .from('frequencias')
+      .select('*')
+      .eq('aluno_id', alunoId)
+      .order('data', { ascending: false })
+      .limit(10);
+
+    let faltasConsecutivas = 0;
+    let ultimaFalta = '';
+    for (const freq of freqs || []) {
+      if (freq.presente === false && (!freq.justificativa || !freq.justificativa.startsWith('[JUSTIFICADA]'))) {
+        faltasConsecutivas++;
+        if (!ultimaFalta) ultimaFalta = freq.data;
+      } else {
+        break;
+      }
+    }
+
+    return this.emailService.enviarEmailAlertaFaltas({
+      resp_nome: aluno.resp_nome,
+      resp_email: aluno.resp_email.trim().toLowerCase(),
+      aluno_nome: aluno.aluno_nome,
+      turma_nome: aluno.turmas?.nome || 'Turma não identificada',
+      turma_turno: aluno.turmas?.turno || '',
+      faltas_consecutivas: faltasConsecutivas,
+      ultima_falta: ultimaFalta,
+    });
   }
 }

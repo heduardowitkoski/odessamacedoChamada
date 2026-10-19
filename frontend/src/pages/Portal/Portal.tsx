@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award, Users, Clock, X, Loader2 } from "lucide-react";
 import { SpotBar } from "../../components/ui/SpotBar";
+import { supabase } from "../../lib/supabase";
 
 // Interface baseada no banco de dados e UI
 interface Turma {
@@ -11,8 +12,6 @@ interface Turma {
   capacidade: number;
 }
 
-// Simulando propriedades que na UI antiga eram "hardcoded" e que ainda não temos no DB real
-// Futuramente o backend também retornará essas infos (faixa, descricão, etc)
 const MOCK_EXTRAS = {
   faixa: "Geral",
   descricao: "Turma de artes do centro Odessa Macedo",
@@ -29,16 +28,26 @@ const COLOR_MAP: Record<string, { accent: string; badge: string; badgeText: stri
   amber:   { accent: "border-amber-300",  badge: "bg-amber-100",  badgeText: "text-amber-800",  btnFull: "bg-amber-500 hover:bg-amber-600",   btnOpen: "bg-amber-500 hover:bg-amber-600",   dot: "bg-amber-400"  },
 };
 
+const API_BASE = (import.meta as any).env?.VITE_API_URL || 'https://odessamacedochamada.onrender.com';
+
 export default function PortalScreen() {
   const [activeFilter, setActiveFilter] = useState("Todas");
   const [search, setSearch] = useState("");
   const [turmasDb, setTurmasDb] = useState<Turma[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ matriculados: 0, fila: 0, vagas: 0 });
+
+  // Modal verificar posição na fila
+  const [showFilaModal, setShowFilaModal] = useState(false);
+  const [filaEmail, setFilaEmail] = useState("");
+  const [filaLoading, setFilaLoading] = useState(false);
+  const [filaErro, setFilaErro] = useState("");
+  const navigate = useNavigate();
 
   const filters = ["Todas", "Com vagas", "Turma cheia"];
 
   useEffect(() => {
-    fetch("https://odessamacedochamada.onrender.com/turmas")
+    fetch(`${API_BASE}/turmas`)
       .then((res) => res.json())
       .then((data) => {
         setTurmasDb(data);
@@ -48,12 +57,32 @@ export default function PortalScreen() {
         console.error("Erro ao buscar turmas", err);
         setLoading(false);
       });
+
+    // Buscar stats de alunos para o Hero
+    fetch(`${API_BASE}/alunos`)
+      .then((res) => res.json())
+      .then((alunos: any[]) => {
+        if (Array.isArray(alunos)) {
+          setStats((prev) => ({
+            ...prev,
+            matriculados: alunos.filter((a) => a.status === "Ativo").length,
+            fila: alunos.filter((a) => a.status === "Fila").length,
+          }));
+        }
+      })
+      .catch(() => {});
   }, []);
 
+  // Atualiza vagas abertas quando turmas carregam
+  useEffect(() => {
+    if (turmasDb.length > 0) {
+      const vagasAbertas = turmasDb.reduce((acc, t) => acc + Math.max(0, t.capacidade), 0);
+      setStats((prev) => ({ ...prev, vagas: vagasAbertas }));
+    }
+  }, [turmasDb]);
+
   const displayed = turmasDb.filter((t) => {
-    // Por enquanto simulamos os spots vazios como se sempre tivesse vaga, já que a API ainda não conta alunos
-    const spots = t.capacidade; 
-    
+    const spots = t.capacidade;
     if (activeFilter === "Com vagas") return spots > 0;
     if (activeFilter === "Turma cheia") return spots === 0;
     return true;
@@ -62,6 +91,25 @@ export default function PortalScreen() {
     t.nome.toLowerCase().includes(search.toLowerCase()) ||
     t.turno.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleVerificarFila = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!filaEmail.trim()) return;
+    setFilaLoading(true);
+    setFilaErro("");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.email?.toLowerCase() === filaEmail.trim().toLowerCase()) {
+        navigate("/responsavel");
+        return;
+      }
+      navigate("/login");
+    } catch {
+      setFilaErro("Ocorreu um erro. Tente novamente.");
+    } finally {
+      setFilaLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif]">
@@ -87,7 +135,11 @@ export default function PortalScreen() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors">
+            <button
+              id="btn-verificar-fila"
+              onClick={() => setShowFilaModal(true)}
+              className="px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors"
+            >
               Verificar posição na fila
             </button>
             <Link to="/admin" className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm">
@@ -119,10 +171,29 @@ export default function PortalScreen() {
               <Link to="/inscrever" className="px-6 py-3 bg-amber-400 text-[#1C1300] text-sm font-bold rounded-xl hover:bg-amber-300 transition-colors shadow-lg flex items-center gap-2">
                 <Plus size={16} /> Inscrever-se agora
               </Link>
-              <button className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2">
+              <button
+                onClick={() => setShowFilaModal(true)}
+                className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2"
+              >
                 <ListOrdered size={16} /> Ver fila de espera
               </button>
             </div>
+          </div>
+
+          {/* Stats dinâmicas do Hero */}
+          <div className="flex gap-4 flex-wrap justify-center md:justify-end">
+            {[
+              { label: "Alunos matriculados", value: stats.matriculados, sub: "em turmas ativas", icon: <Users size={18} className="text-amber-300" /> },
+              { label: "Na fila de espera",   value: stats.fila,         sub: "aguardando vaga",  icon: <Clock size={18} className="text-amber-300" /> },
+              { label: "Vagas abertas",        value: stats.vagas,        sub: "disponíveis agora", icon: <Award size={18} className="text-amber-300" /> },
+            ].map(({ label, value, sub, icon }) => (
+              <div key={label} className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-center min-w-[130px]">
+                <div className="flex justify-center mb-1">{icon}</div>
+                <p className="text-3xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-amber-300">{value}</p>
+                <p className="text-amber-100 text-xs font-semibold mt-1">{label}</p>
+                <p className="text-amber-300/60 text-[10px] mt-0.5">{sub}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -166,7 +237,7 @@ export default function PortalScreen() {
             <p className="text-sm text-gray-400 mb-5">
               <span className="font-semibold text-gray-700">{displayed.length}</span> turmas encontradas
             </p>
-            
+
             {loading ? (
                <div className="text-gray-500 py-10 text-center animate-pulse">Carregando turmas do banco de dados...</div>
             ) : displayed.length === 0 ? (
@@ -186,12 +257,11 @@ export default function PortalScreen() {
                   const colorKey = getColor(turma.nome);
                   const c = COLOR_MAP[colorKey];
                   const spots = turma.capacidade;
-                  const total = 15; // Lotação padrão máxima
+                  const total = 15;
                   const isFull = spots <= 0;
-                  
+
                   return (
                     <div key={turma.id} className={`bg-white rounded-2xl border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all ${isFull ? "border-gray-200" : c.accent}`}>
-                      {/* Color stripe */}
                       <div className={`h-2 rounded-t-2xl ${c.dot}`} />
 
                       <div className="p-5">
@@ -243,6 +313,60 @@ export default function PortalScreen() {
           </div>
         </div>
       </main>
+
+      {/* Modal: Verificar posição na fila */}
+      {showFilaModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-amber-100">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <ListOrdered size={16} />
+                </div>
+                <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                  Verificar posição na fila
+                </h3>
+              </div>
+              <button
+                onClick={() => { setShowFilaModal(false); setFilaErro(""); setFilaEmail(""); }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+              Informe o e-mail cadastrado na inscrição para acessar o portal do responsável e ver a situação do aluno na fila de espera.
+            </p>
+
+            <form onSubmit={handleVerificarFila} className="space-y-3">
+              <input
+                type="email"
+                required
+                placeholder="seu@email.com"
+                value={filaEmail}
+                onChange={(e) => setFilaEmail(e.target.value)}
+                className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+              />
+              {filaErro && <p className="text-xs text-red-600">{filaErro}</p>}
+              <button
+                type="submit"
+                disabled={filaLoading}
+                className="w-full h-10 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {filaLoading ? <><Loader2 size={14} className="animate-spin" /> Verificando...</> : "Acessar minha conta"}
+              </button>
+            </form>
+
+            <p className="text-center text-xs text-gray-400 mt-3">
+              Ainda não tem conta?{" "}
+              <Link to="/inscrever" className="text-amber-600 font-semibold hover:underline" onClick={() => setShowFilaModal(false)}>
+                Inscreva-se aqui
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { AlunosModule } from './alunos/alunos.module';
 import { FrequenciasModule } from './frequencias/frequencias.module';
 import { EmailModule } from './email/email.module';
 import { AdminModule } from './admin/admin.module';
+import { RelatoriosModule } from './relatorios/relatorios.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminModule } from './admin/admin.module';
     FrequenciasModule,
     EmailModule,
     AdminModule,
+    RelatoriosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

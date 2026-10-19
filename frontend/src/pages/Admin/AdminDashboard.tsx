@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Avatar } from "../../components/ui/Avatar";
 import { Badge } from "../../components/ui/Badge";
 import { supabase } from "../../lib/supabase";
+import ReportsTab from "./ReportsTab";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://odessamacedochamada.onrender.com";
 
@@ -48,6 +49,10 @@ export default function AdminDashboard() {
   const [showModalNovaTurma, setShowModalNovaTurma] = useState(false);
   const [novaTurma, setNovaTurma] = useState({ nome: '', turno: '', capacidade: 15, idade_minima: 5, idade_maxima: 17 });
   const [savingTurma, setSavingTurma] = useState(false);
+
+  // Estados para Editar Turma
+  const [turmaParaEditar, setTurmaParaEditar] = useState<any>(null);
+  const [editandoTurma, setEditandoTurma] = useState(false);
 
   // Estados para Gestão de Administradores
   const [admins, setAdmins] = useState<any[]>([]);
@@ -390,6 +395,90 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleEditTurma = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!turmaParaEditar) return;
+    setEditandoTurma(true);
+    try {
+      const res = await fetch(`${API_BASE}/turmas/${turmaParaEditar.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: turmaParaEditar.nome.trim(),
+          turno: turmaParaEditar.turno.trim(),
+          capacidade: Number(turmaParaEditar.capacidade),
+          idade_minima: Number(turmaParaEditar.idade_minima),
+          idade_maxima: Number(turmaParaEditar.idade_maxima),
+        }),
+      });
+      if (res.ok) {
+        alert("Turma atualizada com sucesso!");
+        setTurmaParaEditar(null);
+        fetchTurmas();
+      } else {
+        const err = await res.json();
+        alert("Erro ao editar turma: " + (err.message || "Erro desconhecido"));
+      }
+    } catch {
+      alert("Erro de conexão ao editar turma.");
+    } finally {
+      setEditandoTurma(false);
+    }
+  };
+
+  const handleDeleteTurma = async (turma: any) => {
+    if (!window.confirm(`Deseja realmente excluir a turma "${turma.nome}"? Esta ação é irreversível.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/turmas/${turma.id}`, { method: "DELETE" });
+      if (res.ok) {
+        alert("Turma excluída com sucesso!");
+        fetchTurmas();
+      } else {
+        const err = await res.json();
+        alert("Erro ao excluir: " + (err.message || "Erro desconhecido"));
+      }
+    } catch {
+      alert("Erro de conexão ao excluir turma.");
+    }
+  };
+
+  const handleExportCSV = async () => {
+    const turmaId = activeMenu === "Frequência" && selectedTurmaFreq ? selectedTurmaFreq : '';
+    const url = `${API_BASE}/frequencias/exportar${turmaId ? `?turma_id=${turmaId}` : ''}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Erro ao gerar relatório');
+      const blob = await res.blob();
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = urlObj;
+      a.download = `relatorio_frequencias_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch {
+      alert('Erro ao exportar relatório. Verifique a conexão com o servidor.');
+    }
+  };
+
+  const handleEnviarAlertaFaltas = async (alunoId: string, alunoNome: string) => {
+    if (!window.confirm(`Enviar e-mail de alerta de faltas para o responsável de ${alunoNome}?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/frequencias/alertas/enviar-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aluno_id: alunoId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`E-mail de alerta enviado com sucesso para o responsável de ${alunoNome}!`);
+      } else {
+        alert('Erro ao enviar e-mail: ' + (data.error || 'Tente novamente.'));
+      }
+    } catch {
+      alert('Erro de conexão ao enviar e-mail de alerta.');
+    }
+  };
+
   const menuItems = [
     { icon: <Home size={17} />, label: "Dashboard" },
     { icon: <Users size={17} />, label: "Alunos", badge: alunosAtivos.length },
@@ -480,6 +569,8 @@ export default function AdminDashboard() {
                 ? "Gestão de Turmas e Vagas" 
                 : activeMenu === "Administradores"
                 ? "Gestão de Administradores"
+                : activeMenu === "Relatórios"
+                ? "Relatórios e Indicadores"
                 : "Gestão de Alunos · Aulas de Desenho"}
             </h1>
           </div>
@@ -490,9 +581,11 @@ export default function AdminDashboard() {
                 <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
               )}
             </button>
-            <button className="flex items-center gap-2 text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50">
-              <Download size={15} /> Exportar
-            </button>
+            {activeMenu !== "Relatórios" && (
+              <button className="flex items-center gap-2 text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50" onClick={handleExportCSV}>
+                <Download size={15} /> Exportar CSV
+              </button>
+            )}
             {activeMenu === "Turmas" ? (
               <button 
                 onClick={() => setShowModalNovaTurma(true)} 
@@ -517,17 +610,19 @@ export default function AdminDashboard() {
 
         <div className="flex-1 overflow-auto p-7">
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-5 mb-7">
-            {stats.map(({ label, value, icon, color, bg }) => (
-              <div key={label} className="bg-white rounded-2xl p-5 border border-amber-50 shadow-sm flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center ${color}`}>{icon}</div>
-                <div>
-                  <p className="text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300]">{value}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+          {activeMenu !== "Relatórios" && (
+            <div className="grid grid-cols-4 gap-5 mb-7">
+              {stats.map(({ label, value, icon, color, bg }) => (
+                <div key={label} className="bg-white rounded-2xl p-5 border border-amber-50 shadow-sm flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center ${color}`}>{icon}</div>
+                  <div>
+                    <p className="text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300]">{value}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {activeMenu === "Turmas" ? (
             /* --- MÓDULO DE GESTÃO DE TURMAS --- */
@@ -588,6 +683,21 @@ export default function AdminDashboard() {
                           <span>Alunos ativos: <strong className="text-gray-900">{alunosAtivosTurma.length}</strong></span>
                           <span>Capacidade total: <strong className="text-gray-900">{turma.capacidade}</strong></span>
                         </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex gap-2 mt-2">
+                          <button
+                            onClick={() => setTurmaParaEditar({ ...turma })}
+                            className="flex-1 text-xs py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <Pencil size={12} /> Editar
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTurma(turma)}
+                            className="flex-1 text-xs py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <Trash2 size={12} /> Excluir
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -633,6 +743,12 @@ export default function AdminDashboard() {
                           >
                             Contatar Resp.
                           </a>
+                          <button
+                            onClick={() => handleEnviarAlertaFaltas(aluno.id, aluno.aluno_nome)}
+                            className="flex-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 py-1.5 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <Mail size={11} /> Enviar Alerta
+                          </button>
                           <button
                             onClick={() => handleDelete(aluno)}
                             className="flex-1 text-xs bg-red-50 text-red-700 border border-red-200 py-1.5 rounded-lg font-semibold hover:bg-red-100 transition-colors"
@@ -853,6 +969,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
+          ) : activeMenu === "Relatórios" ? (
+            /* --- MÓDULO DE RELATÓRIOS --- */
+            <ReportsTab turmas={turmasDb} alertasFaltas={alertasFaltas} />
           ) : (
             /* --- DASHBOARD / VISÃO DE ALUNOS --- */
             <div className="flex gap-6">
@@ -1171,6 +1290,121 @@ export default function AdminDashboard() {
                   className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {savingTurma ? "Criando..." : "Criar Turma"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Turma */}
+      {turmaParaEditar && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-amber-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center">
+                  <Pencil size={16} />
+                </div>
+                <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                  Editar Turma
+                </h3>
+              </div>
+              <button
+                onClick={() => setTurmaParaEditar(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditTurma} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Nome da Turma *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={turmaParaEditar.nome || ""}
+                  onChange={(e) => setTurmaParaEditar({ ...turmaParaEditar, nome: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Turno e Horário *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={turmaParaEditar.turno || ""}
+                  onChange={(e) => setTurmaParaEditar({ ...turmaParaEditar, turno: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Capacidade Total de Vagas *
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  required
+                  value={turmaParaEditar.capacidade ?? 0}
+                  onChange={(e) => setTurmaParaEditar({ ...turmaParaEditar, capacidade: Number(e.target.value) })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Idade Mínima (anos) *
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    required
+                    value={turmaParaEditar.idade_minima ?? extractAgeRange(turmaParaEditar.nome).idade_minima}
+                    onChange={(e) => setTurmaParaEditar({ ...turmaParaEditar, idade_minima: Number(e.target.value) })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Idade Máxima (anos) *
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    required
+                    value={turmaParaEditar.idade_maxima ?? extractAgeRange(turmaParaEditar.nome).idade_maxima}
+                    onChange={(e) => setTurmaParaEditar({ ...turmaParaEditar, idade_maxima: Number(e.target.value) })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setTurmaParaEditar(null)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editandoTurma}
+                  className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {editandoTurma ? "Salvando..." : "Salvar Alterações"}
                 </button>
               </div>
             </form>

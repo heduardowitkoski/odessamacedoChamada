@@ -61,8 +61,9 @@
   - **Detalhamento:** Estrutura de dados protegida por autenticação e controle de chave administrativa no backend para resguardar informações sensíveis de alunos e responsáveis.
 
 - **Ferramentas de Exportação e Relatórios Administrativos**
-  - **Status:** Pendente.
-  - **Detalhamento:** Geração de relatórios consolidados em formato CSV/PDF com histórico de frequência e listagem da fila de espera.
+  - **Status:** Concluído e Implementado.
+  - **Detalhamento:** Aba dedicada de `Relatórios` no painel administrativo com indicadores consolidados (frequência média, aulas registradas, alunos ativos e alunos em risco), gráfico de frequência por turma e tabela analítica detalhada.
+  - **Exportação:** Geração de relatórios em **CSV** e **PDF** tanto do histórico de frequência (com filtros por turma e período) quanto da **lista de espera** (ordenada por inscrição, com dados de contato do responsável), por meio do módulo `RelatoriosModule` do NestJS e da biblioteca `pdfkit`.
 
 - **Formulário de Avaliação e Treinamento Final**
   - **Status:** Pendente.
@@ -82,5 +83,8 @@
 | `GET` | `/frequencias/turma/:turma_id?data=YYYY-MM-DD` | Busca os alunos de uma turma e o registro de chamada da data informada |
 | `POST` | `/frequencias/batch` | Salva ou atualiza a chamada em lote de uma turma para uma data |
 | `GET` | `/frequencias/alertas` | Retorna a lista de alunos ativos com 3+ faltas consecutivas |
+| `GET` | `/relatorios/resumo` | Indicadores consolidados de frequência por turma e totais gerais |
+| `GET` | `/relatorios/fila-espera/csv` \| `/relatorios/fila-espera/pdf` | Exporta a lista de espera em CSV ou PDF |
+| `GET` | `/relatorios/frequencias/csv` \| `/relatorios/frequencias/pdf` | Exporta o relatório de frequência (filtros `turma_id`, `data_inicio`, `data_fim`) |
 
 ---

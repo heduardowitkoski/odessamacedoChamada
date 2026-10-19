@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { TurmasService } from './turmas.service';
 
 @Controller('turmas')
@@ -11,7 +11,20 @@ export class TurmasController {
   }
 
   @Post()
-  async create(@Body() createTurmaDto: { nome: string; turno: string; capacidade: number }) {
+  async create(@Body() createTurmaDto: { nome: string; turno: string; capacidade: number; idade_minima?: number; idade_maxima?: number }) {
     return this.turmasService.create(createTurmaDto);
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() dto: { nome?: string; turno?: string; capacidade?: number; idade_minima?: number; idade_maxima?: number },
+  ) {
+    return this.turmasService.update(id, dto);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.turmasService.remove(id);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
 export function extractAgeRange(nome: string): { idade_minima: number; idade_maxima: number } {
@@ -83,5 +83,48 @@ export class TurmasService {
       throw new InternalServerErrorException(error.message);
     }
     return data;
+  }
+
+  async update(
+    id: string,
+    dto: { nome?: string; turno?: string; capacidade?: number; idade_minima?: number; idade_maxima?: number },
+  ) {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('turmas')
+      .update(dto)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+    return data;
+  }
+
+  async remove(id: string) {
+    const supabase = this.supabaseService.getClient();
+
+    // Verifica se há alunos ativos nessa turma antes de excluir
+    const { data: alunos } = await supabase
+      .from('alunos')
+      .select('id')
+      .eq('turma_id', id)
+      .neq('status', 'Inativo')
+      .limit(1);
+
+    if (alunos && alunos.length > 0) {
+      throw new BadRequestException(
+        'Não é possível excluir uma turma com alunos ativos ou na fila de espera. Inative ou transfira os alunos antes.',
+      );
+    }
+
+    const { error } = await supabase.from('turmas').delete().eq('id', id);
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+    return { success: true, message: 'Turma removida com sucesso.' };
   }
 }
