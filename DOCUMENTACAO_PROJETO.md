@@ -27,7 +27,7 @@
 - **Portal Público de Turmas e Exibição de Disponibilidade (`/`)**
   - **Status:** Concluído e Implementado.
   - **Detalhamento:** Apresentação das turmas disponíveis por faixa etária (Infantil, Juvenil, Adulto, Melhor Idade) e turnos. 
-  - **Diretriz de Vagas ("Há Vagas"):** Conforme solicitação dos gestores, foram removidas as exibições de números absolutos de vagas ociosas. O sistema exibe o status amigável **"Há vagas"** (para turmas disponíveis) ou **"Turma cheia"** (para turmas sem vagas no momento, direcionando para a fila de espera).
+  - **Diretriz de Vagas ("Há Vagas"):** Conforme solicitação dos gestores, o portal público não expõe mais nenhum número de ocupação. Foram removidos os contadores de **alunos matriculados**, **fila de espera** e **vagas abertas** do portal, além da **barra de disponibilidade** de cada turma (no portal e na inscrição). O sistema exibe apenas o status amigável **"Há vagas"** ou **"Turma cheia"** (direcionando para a fila de espera). Os números absolutos e os indicadores de vagas ficam restritos à área administrativa autenticada.
 
 ---
 

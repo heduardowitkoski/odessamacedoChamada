@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award, Users, Clock, X, Loader2 } from "lucide-react";
-import { SpotBar } from "../../components/ui/SpotBar";
+import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award, X, Loader2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 // Interface baseada no banco de dados e UI
@@ -35,7 +34,6 @@ export default function PortalScreen() {
   const [search, setSearch] = useState("");
   const [turmasDb, setTurmasDb] = useState<Turma[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ matriculados: 0, fila: 0, vagas: 0 });
 
   // Modal verificar posição na fila
   const [showFilaModal, setShowFilaModal] = useState(false);
@@ -57,29 +55,7 @@ export default function PortalScreen() {
         console.error("Erro ao buscar turmas", err);
         setLoading(false);
       });
-
-    // Buscar stats de alunos para o Hero
-    fetch(`${API_BASE}/alunos`)
-      .then((res) => res.json())
-      .then((alunos: any[]) => {
-        if (Array.isArray(alunos)) {
-          setStats((prev) => ({
-            ...prev,
-            matriculados: alunos.filter((a) => a.status === "Ativo").length,
-            fila: alunos.filter((a) => a.status === "Fila").length,
-          }));
-        }
-      })
-      .catch(() => {});
   }, []);
-
-  // Atualiza vagas abertas quando turmas carregam
-  useEffect(() => {
-    if (turmasDb.length > 0) {
-      const vagasAbertas = turmasDb.reduce((acc, t) => acc + Math.max(0, t.capacidade), 0);
-      setStats((prev) => ({ ...prev, vagas: vagasAbertas }));
-    }
-  }, [turmasDb]);
 
   const displayed = turmasDb.filter((t) => {
     const spots = t.capacidade;
@@ -180,21 +156,6 @@ export default function PortalScreen() {
             </div>
           </div>
 
-          {/* Stats dinâmicas do Hero */}
-          <div className="flex gap-4 flex-wrap justify-center md:justify-end">
-            {[
-              { label: "Alunos matriculados", value: stats.matriculados, sub: "em turmas ativas", icon: <Users size={18} className="text-amber-300" /> },
-              { label: "Na fila de espera",   value: stats.fila,         sub: "aguardando vaga",  icon: <Clock size={18} className="text-amber-300" /> },
-              { label: "Vagas abertas",        value: stats.vagas,        sub: "disponíveis agora", icon: <Award size={18} className="text-amber-300" /> },
-            ].map(({ label, value, sub, icon }) => (
-              <div key={label} className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-5 text-center min-w-[130px]">
-                <div className="flex justify-center mb-1">{icon}</div>
-                <p className="text-3xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-amber-300">{value}</p>
-                <p className="text-amber-100 text-xs font-semibold mt-1">{label}</p>
-                <p className="text-amber-300/60 text-[10px] mt-0.5">{sub}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -256,9 +217,7 @@ export default function PortalScreen() {
                   };
                   const colorKey = getColor(turma.nome);
                   const c = COLOR_MAP[colorKey];
-                  const spots = turma.capacidade;
-                  const total = 15;
-                  const isFull = spots <= 0;
+                  const isFull = turma.capacidade <= 0;
 
                   return (
                     <div key={turma.id} className={`bg-white rounded-2xl border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all ${isFull ? "border-gray-200" : c.accent}`}>
@@ -287,8 +246,6 @@ export default function PortalScreen() {
                           <BookOpen size={12} />
                           {turma.turno}
                         </div>
-
-                        <SpotBar spots={spots} total={total} />
 
                         <div className="mt-4 flex gap-2">
                           {isFull ? (
