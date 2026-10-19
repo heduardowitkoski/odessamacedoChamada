@@ -1,6 +1,7 @@
-import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException, Optional } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { EmailService } from '../email/email.service';
+import { DatabaseService } from '../database/database.service';
 
 export interface RegistroFrequenciaDto {
   aluno_id: string;
@@ -13,12 +14,18 @@ export class FrequenciasService {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly emailService: EmailService,
+    @Optional() private readonly databaseService?: DatabaseService,
   ) {}
 
   async buscarPorTurmaEData(turma_id: string, dataStr: string) {
+    // 1. Resposta Instantânea da RAM via DatabaseService (< 1ms)
+    if (this.databaseService) {
+      return this.databaseService.getFrequencias(turma_id, dataStr);
+    }
+
+    // Fallback direto ao Supabase
     const supabase = this.supabaseService.getClient();
 
-    // 1. Buscar alunos inscritos/ativos da turma (não inativos)
     const { data: alunos, error: alunosError } = await supabase
       .from('alunos')
       .select('*')
@@ -27,14 +34,13 @@ export class FrequenciasService {
       .order('aluno_nome', { ascending: true });
 
     if (alunosError) {
-      throw new InternalServerErrorException("Erro ao buscar alunos: " + alunosError.message);
+      throw new InternalServerErrorException('Erro ao buscar alunos: ' + alunosError.message);
     }
 
     if (!alunos || alunos.length === 0) {
       return [];
     }
 
-    // 2. Buscar registros de frequencia já efetuados nesta data para os alunos da turma
     const alunoIds = alunos.map((a: any) => a.id);
     const { data: frequencias, error: freqError } = await supabase
       .from('frequencias')
@@ -43,7 +49,7 @@ export class FrequenciasService {
       .eq('data', dataStr);
 
     if (freqError) {
-      throw new InternalServerErrorException("Erro ao buscar frequências: " + freqError.message);
+      throw new InternalServerErrorException('Erro ao buscar frequências: ' + freqError.message);
     }
 
     const mapFreq = new Map<string, any>();
@@ -51,7 +57,6 @@ export class FrequenciasService {
       frequencias.forEach((f: any) => mapFreq.set(f.aluno_id, f));
     }
 
-    // Combine alunos com seus registros de frequencia
     return alunos.map((aluno: any) => {
       const registro = mapFreq.get(aluno.id);
       let status: 'PRESENTE' | 'FALTA' | 'JUSTIFICADA' = 'PRESENTE';
@@ -78,17 +83,23 @@ export class FrequenciasService {
         frequencia: {
           status,
           observacao,
-          id: registro?.id
-        }
+          id: registro?.id,
+        },
       };
     });
   }
 
   async salvarLote(turma_id: string, dataStr: string, registros: RegistroFrequenciaDto[]) {
     if (!turma_id || !dataStr || !Array.isArray(registros)) {
-      throw new BadRequestException("Parâmetros inválidos para lançamento de chamada.");
+      throw new BadRequestException('Parâmetros inválidos para lançamento de chamada.');
     }
 
+    // 1. Resposta Instantânea via DatabaseService (< 1ms)
+    if (this.databaseService) {
+      return this.databaseService.saveFrequencias(turma_id, dataStr, registros);
+    }
+
+    // Fallback direto ao Supabase
     const supabase = this.supabaseService.getClient();
 
     const payload = registros.map((r) => {
@@ -112,39 +123,56 @@ export class FrequenciasService {
       .select();
 
     if (error) {
-      throw new InternalServerErrorException("Erro ao salvar chamadas: " + error.message);
+      throw new InternalServerErrorException('Erro ao salvar chamadas: ' + error.message);
     }
 
     return data;
   }
 
   async buscarAlertasFaltas() {
+    // 1. Resposta Instantânea da RAM via DatabaseService (< 1ms)
+    // Sem gargalo N+1 e mantendo matrícula Ativa
+    if (this.databaseService) {
+      return this.databaseService.getAlertasFaltas();
+    }
+
+    // Fallback otimizado com busca em lote (Batch query)
     const supabase = this.supabaseService.getClient();
 
-    // Buscar alunos ativos
     const { data: alunos, error: alunosError } = await supabase
       .from('alunos')
       .select('*, turmas(*)')
       .neq('status', 'Inativo');
 
     if (alunosError) {
-      throw new InternalServerErrorException("Erro ao buscar alunos para alertas: " + alunosError.message);
+      throw new InternalServerErrorException('Erro ao buscar alunos para alertas: ' + alunosError.message);
+    }
+
+    if (!alunos || alunos.length === 0) return [];
+
+    const alunoIds = alunos.map((a: any) => a.id);
+    const { data: freqs, error: freqError } = await supabase
+      .from('frequencias')
+      .select('*')
+      .in('aluno_id', alunoIds)
+      .order('data', { ascending: false });
+
+    if (freqError) {
+      throw new InternalServerErrorException('Erro ao buscar frequências para alertas: ' + freqError.message);
+    }
+
+    const freqsMap = new Map<string, any[]>();
+    for (const f of freqs || []) {
+      const list = freqsMap.get(f.aluno_id) || [];
+      if (list.length < 10) list.push(f);
+      freqsMap.set(f.aluno_id, list);
     }
 
     const alertas = [];
-
-    for (const aluno of alunos || []) {
-      const { data: freqs, error: freqError } = await supabase
-        .from('frequencias')
-        .select('*')
-        .eq('aluno_id', aluno.id)
-        .order('data', { ascending: false })
-        .limit(10);
-
-      if (freqError || !freqs) continue;
-
+    for (const aluno of alunos) {
+      const studentFreqs = freqsMap.get(aluno.id) || [];
       let faltasConsecutivas = 0;
-      for (const freq of freqs) {
+      for (const freq of studentFreqs) {
         if (freq.presente === false && (!freq.justificativa || !freq.justificativa.startsWith('[JUSTIFICADA]'))) {
           faltasConsecutivas++;
         } else {
@@ -156,7 +184,7 @@ export class FrequenciasService {
         alertas.push({
           aluno,
           faltasConsecutivas,
-          ultimaFalta: freqs[0]?.data,
+          ultimaFalta: studentFreqs[0]?.data,
         });
       }
     }
@@ -168,10 +196,16 @@ export class FrequenciasService {
     if (!email) {
       throw new BadRequestException('E-mail do responsável é obrigatório.');
     }
+
+    // 1. Resposta Instantânea da RAM via DatabaseService (< 1ms)
+    if (this.databaseService) {
+      return this.databaseService.getMinhasFaltasPorEmail(email);
+    }
+
+    // Fallback com batch query
     const cleanEmail = email.trim().toLowerCase();
     const supabase = this.supabaseService.getClient();
 
-    // 1. Buscar alunos ativos associados a este e-mail
     const { data: alunos, error: alunosError } = await supabase
       .from('alunos')
       .select('*, turmas(*)')
@@ -187,21 +221,29 @@ export class FrequenciasService {
       return { alunos: [] };
     }
 
+    const alunoIds = alunos.map((a: any) => a.id);
+    const { data: freqs, error: freqsError } = await supabase
+      .from('frequencias')
+      .select('*')
+      .in('aluno_id', alunoIds)
+      .order('data', { ascending: false });
+
+    if (freqsError) {
+      throw new InternalServerErrorException('Erro ao buscar frequências: ' + freqsError.message);
+    }
+
+    const freqsMap = new Map<string, any[]>();
+    for (const f of freqs || []) {
+      const list = freqsMap.get(f.aluno_id) || [];
+      list.push(f);
+      freqsMap.set(f.aluno_id, list);
+    }
+
     const resultadoAlunos = [];
 
     for (const aluno of alunos) {
-      // 2. Buscar todas as frequências do aluno ordenadas por data
-      const { data: freqs, error: freqsError } = await supabase
-        .from('frequencias')
-        .select('*')
-        .eq('aluno_id', aluno.id)
-        .order('data', { ascending: false });
-
-      if (freqsError) {
-        throw new InternalServerErrorException('Erro ao buscar frequências: ' + freqsError.message);
-      }
-
-      const historico = (freqs || []).map((f: any) => {
+      const studentFreqs = freqsMap.get(aluno.id) || [];
+      const historico = studentFreqs.map((f: any) => {
         let status: 'PRESENTE' | 'FALTA' | 'JUSTIFICADA' = 'PRESENTE';
         let justificativa = f.justificativa || '';
 

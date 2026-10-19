@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, MoreHorizontal, UserX, RefreshCw, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2
+  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, MoreHorizontal, UserX, RefreshCw, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Avatar } from "../../components/ui/Avatar";
 import { Badge } from "../../components/ui/Badge";
 import { supabase } from "../../lib/supabase";
+import MuralBoard from "../../components/mural/MuralBoard";
+import { clearUserSession } from "../../lib/auth";
 import ReportsTab from "./ReportsTab";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://odessamacedochamada.onrender.com";
@@ -490,6 +492,7 @@ export default function AdminDashboard() {
       badgeColor: "bg-red-500" 
     },
     { icon: <BookOpen size={17} />, label: "Turmas" },
+    { icon: <Sparkles size={17} />, label: "Mural" },
     { icon: <ShieldCheck size={17} />, label: "Administradores", badge: admins.length },
     { icon: <BarChart2 size={17} />, label: "Relatórios" },
     { icon: <Settings size={17} />, label: "Configurações" },
@@ -547,7 +550,8 @@ export default function AdminDashboard() {
             </div>
             <button 
               onClick={async () => {
-                await supabase.auth.signOut();
+                clearUserSession();
+                await supabase.auth.signOut().catch(() => {});
                 navigate('/login');
               }}
               className="text-amber-400/70 hover:text-white transition-colors"
@@ -567,6 +571,8 @@ export default function AdminDashboard() {
                 ? "Registro de Frequência e Chamada Diária" 
                 : activeMenu === "Turmas" 
                 ? "Gestão de Turmas e Vagas" 
+                : activeMenu === "Mural"
+                ? "Mural de Atividades e Obras"
                 : activeMenu === "Administradores"
                 ? "Gestão de Administradores"
                 : activeMenu === "Relatórios"
@@ -600,6 +606,8 @@ export default function AdminDashboard() {
               >
                 <Plus size={15} /> Novo Administrador
               </button>
+            ) : activeMenu === "Mural" ? (
+              null
             ) : (
               <Link to="/inscrever" className="flex items-center gap-2 text-sm text-white bg-amber-500 font-medium rounded-xl px-3 py-2 hover:bg-amber-600 transition-colors">
                 <Plus size={15} /> Nova inscrição
@@ -968,6 +976,11 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               </div>
+            </div>
+          ) : activeMenu === "Mural" ? (
+            /* --- MODULO DO MURAL DE ATIVIDADES E OBRAS --- */
+            <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
+              <MuralBoard embedded={true} allowPublish={true} />
             </div>
           ) : activeMenu === "Relatórios" ? (
             /* --- MÓDULO DE RELATÓRIOS --- */
