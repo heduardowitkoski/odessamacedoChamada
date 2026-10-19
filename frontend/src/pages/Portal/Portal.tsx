@@ -134,7 +134,7 @@ export default function PortalScreen() {
         <div className="max-w-[1440px] mx-auto px-8 py-16 flex flex-col md:flex-row items-center gap-12 relative">
           <div className="flex-1">
             <span className="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/30 text-amber-200 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
-              <Award size={12} /> Programa Cultural da Prefeitura de Bagé
+              <Award size={12} /> Escola pública de artes
             </span>
             <h1 className="font-['Plus_Jakarta_Sans',sans-serif] text-4xl md:text-5xl font-extrabold leading-tight mb-4">
               Aulas de Desenho<br />
