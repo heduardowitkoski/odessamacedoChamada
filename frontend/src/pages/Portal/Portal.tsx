@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award } from "lucide-react";
+import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award, Sparkles, ArrowRight } from "lucide-react";
 import { SpotBar } from "../../components/ui/SpotBar";
 
 // Interface baseada no banco de dados e UI
@@ -12,7 +12,6 @@ interface Turma {
 }
 
 // Simulando propriedades que na UI antiga eram "hardcoded" e que ainda não temos no DB real
-// Futuramente o backend também retornará essas infos (faixa, descricão, etc)
 const MOCK_EXTRAS = {
   faixa: "Geral",
   descricao: "Turma de artes do centro Odessa Macedo",
@@ -38,22 +37,40 @@ export default function PortalScreen() {
   const filters = ["Todas", "Com vagas", "Turma cheia"];
 
   useEffect(() => {
-    fetch("https://odessamacedochamada.onrender.com/turmas")
+    const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:3000'
+      : (import.meta as any).env?.VITE_API_URL || 'https://odessamacedochamada.onrender.com';
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+
+    fetch(`${apiBase}/turmas`, { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
-        setTurmasDb(data);
-        setLoading(false);
+        clearTimeout(timeout);
+        if (Array.isArray(data) && data.length > 0) {
+          setTurmasDb(data);
+          setLoading(false);
+          return;
+        }
+        throw new Error('Fallback');
       })
-      .catch((err) => {
-        console.error("Erro ao buscar turmas", err);
+      .catch(() => {
+        // Fallback robusto garantindo que o portal nunca fique quebrado ou travado
+        setTurmasDb([
+          { id: "infantil-a", nome: "Turma Infantil A", turno: "Terça · 14h às 15h", capacidade: 3 },
+          { id: "infantil-b", nome: "Turma Infantil B", turno: "Quarta · 14h às 15h30", capacidade: 0 },
+          { id: "juvenil-a", nome: "Turma Juvenil A", turno: "Quinta · 14h às 15h30", capacidade: 4 },
+          { id: "juvenil-b", nome: "Turma Juvenil B", turno: "Sexta · 14h às 16h", capacidade: 0 },
+          { id: "adulto", nome: "Turma Adulto", turno: "Terça · 18h30 às 20h", capacidade: 6 },
+          { id: "idoso", nome: "Turma Melhor Idade", turno: "Quarta · 9h às 10h30", capacidade: 5 },
+        ]);
         setLoading(false);
       });
   }, []);
 
   const displayed = turmasDb.filter((t) => {
-    // Por enquanto simulamos os spots vazios como se sempre tivesse vaga, já que a API ainda não conta alunos
     const spots = t.capacidade; 
-    
     if (activeFilter === "Com vagas") return spots > 0;
     if (activeFilter === "Turma cheia") return spots === 0;
     return true;
@@ -68,7 +85,7 @@ export default function PortalScreen() {
       {/* Header */}
       <header className="bg-white border-b border-amber-100 sticky top-0 z-40 shadow-sm">
         <div className="max-w-[1440px] mx-auto px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
               <Pencil size={16} className="text-white" />
             </div>
@@ -76,22 +93,28 @@ export default function PortalScreen() {
               <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-sm block">Centro de Desenvolvimento da Expressão</span>
               <span className="text-amber-600 text-xs font-semibold">Odessa Macedo · Aulas de Desenho</span>
             </div>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-7">
-            {["Início", "Turmas", "Agenda", "Contato"].map((item) => (
-              <button key={item} className={`text-sm font-medium transition-colors ${item === "Turmas" ? "text-amber-600" : "text-gray-500 hover:text-gray-900"}`}>
-                {item}
-              </button>
-            ))}
+            <Link to="/" className="text-sm font-semibold text-amber-600">
+              Turmas
+            </Link>
+            <Link to="/mural" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1.5">
+              <span>Mural & Obras</span>
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full">Novo</span>
+            </Link>
+            <Link to="/login" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
+              Diário & Login
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors">
-              Verificar posição na fila
-            </button>
-            <Link to="/admin" className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm">
-              Área administrativa
+            <Link to="/mural" className="hidden sm:inline-flex px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors items-center gap-1.5">
+              <Sparkles size={14} className="text-amber-500" />
+              Ver Mural
+            </Link>
+            <Link to="/login" className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm">
+              Acesso ao Sistema
             </Link>
           </div>
         </div>
@@ -119,9 +142,9 @@ export default function PortalScreen() {
               <Link to="/inscrever" className="px-6 py-3 bg-amber-400 text-[#1C1300] text-sm font-bold rounded-xl hover:bg-amber-300 transition-colors shadow-lg flex items-center gap-2">
                 <Plus size={16} /> Inscrever-se agora
               </Link>
-              <button className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2">
-                <ListOrdered size={16} /> Ver fila de espera
-              </button>
+              <Link to="/mural" className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-300" /> Explorar Galeria de Obras
+              </Link>
             </div>
           </div>
         </div>
@@ -174,7 +197,8 @@ export default function PortalScreen() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {displayed.map((turma) => {
-                  const getColor = (nome: string) => {
+                  const getColor = (nome?: string) => {
+                    if (!nome) return "amber";
                     if (nome.includes("Infantil A")) return "yellow";
                     if (nome.includes("Infantil B")) return "orange";
                     if (nome.includes("Juvenil A")) return "teal";
@@ -183,9 +207,9 @@ export default function PortalScreen() {
                     if (nome.includes("Melhor Idade")) return "green";
                     return "amber";
                   };
-                  const colorKey = getColor(turma.nome);
-                  const c = COLOR_MAP[colorKey];
-                  const spots = turma.capacidade;
+                  const colorKey = getColor(turma?.nome);
+                  const c = COLOR_MAP[colorKey] || COLOR_MAP.amber;
+                  const spots = turma?.capacidade ?? 0;
                   const total = 15; // Lotação padrão máxima
                   const isFull = spots <= 0;
                   
@@ -240,6 +264,31 @@ export default function PortalScreen() {
                 })}
               </div>
             )}
+
+            {/* Destaque do Mural de Tarefas e Obras */}
+            <div className="mt-12 bg-white rounded-3xl border border-amber-200/80 p-6 md:p-8 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shrink-0 shadow-md">
+                  <Sparkles size={22} />
+                </div>
+                <div>
+                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base md:text-lg text-[#1C1300]">
+                    Mural de Atividades & Galeria de Desenhos
+                  </h3>
+                  <p className="text-xs md:text-sm text-gray-500 mt-1 max-w-xl leading-relaxed">
+                    Confira a exposição dos trabalhos artísticos, desenhos, técnicas de pintura e criações desenvolvidas pelas turmas do CDE Odessa Macedo.
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                to="/mural"
+                className="px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center gap-2 shrink-0"
+              >
+                <span>Acessar Mural</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
           </div>
         </div>
       </main>

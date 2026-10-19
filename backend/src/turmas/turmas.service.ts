@@ -1,5 +1,6 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Optional } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { DatabaseService } from '../database/database.service';
 
 export function extractAgeRange(nome: string): { idade_minima: number; idade_maxima: number } {
   if (!nome) return { idade_minima: 0, idade_maxima: 120 };
@@ -23,9 +24,18 @@ export function extractAgeRange(nome: string): { idade_minima: number; idade_max
 
 @Injectable()
 export class TurmasService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    @Optional() private readonly databaseService?: DatabaseService,
+  ) {}
 
   async findAll() {
+    // 1. Resposta Instantânea da RAM via DatabaseService (< 1ms)
+    if (this.databaseService) {
+      return this.databaseService.getTurmas();
+    }
+
+    // Fallback direto ao Supabase (ex: testes isolados sem DatabaseModule)
     const { data, error } = await this.supabaseService
       .getClient()
       .from('turmas')
@@ -53,6 +63,12 @@ export class TurmasService {
     idade_minima?: number;
     idade_maxima?: number;
   }) {
+    // 1. Resposta Instantânea via DatabaseService (< 1ms)
+    if (this.databaseService) {
+      return this.databaseService.createTurma(createTurmaDto);
+    }
+
+    // Fallback direto ao Supabase
     const fallback = extractAgeRange(createTurmaDto.nome || '');
     const payload = {
       ...createTurmaDto,
@@ -67,7 +83,6 @@ export class TurmasService {
       .select();
 
     if (error) {
-      // Caso as colunas ainda não existam no Supabase do usuário, tenta inserir sem as novas colunas
       if (error.message?.includes('idade_minima') || error.message?.includes('idade_maxima')) {
         const { idade_minima, idade_maxima, ...fallbackPayload } = payload;
         const retry = await this.supabaseService

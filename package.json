@@ -1,0 +1,11 @@
+{
+  "name": "ode-chamada-root",
+  "version": "1.0.0",
+  "description": "Sistema de Gestão e Chamada CDE Odessa Macedo",
+  "scripts": {
+    "start": "cmd /c iniciar.bat",
+    "dev:backend": "npm --prefix backend run start:dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build"
+  }
+}

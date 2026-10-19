@@ -2,10 +2,11 @@ import { Module } from '@nestjs/common';
 import { AlunosController } from './alunos.controller';
 import { AlunosService } from './alunos.service';
 import { SupabaseModule } from '../supabase/supabase.module';
+import { DatabaseModule } from '../database/database.module';
 import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [SupabaseModule, EmailModule],
+  imports: [SupabaseModule, DatabaseModule, EmailModule],
   controllers: [AlunosController],
   providers: [AlunosService],
   exports: [AlunosService],

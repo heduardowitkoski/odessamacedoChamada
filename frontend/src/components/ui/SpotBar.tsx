@@ -1,7 +1,9 @@
+export function SpotBar({ spots = 0, total = 15 }: { spots: number; total: number }) {
+  const safeTotal = total > 0 ? total : 15;
+  const safeSpots = Math.max(0, spots || 0);
+  const pct = Math.min(100, Math.max(0, Math.round(((safeTotal - safeSpots) / safeTotal) * 100)));
+  const isFull = safeSpots === 0;
 
-export function SpotBar({ spots, total }: { spots: number; total: number }) {
-  const pct = Math.round(((total - spots) / total) * 100);
-  const isFull = spots === 0;
   return (
     <div className="w-full">
       <div className="flex justify-between text-xs mb-1">
