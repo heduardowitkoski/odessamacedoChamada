@@ -1,7 +1,7 @@
 import { useState, useEffect, type ChangeEvent, type FocusEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getApiBase } from "../../lib/api";
-import { CheckCircle, AlertCircle, Pencil, ArrowRight, Loader2, UserCheck } from "lucide-react";
+import { CheckCircle, AlertCircle, Pencil, ArrowRight, Loader2 } from "lucide-react";
 
 type FormStep = 0 | 1 | 2 | 3;
 
@@ -74,10 +74,7 @@ const validateCPF = (cpf: string): string | null => {
   return null;
 };
 
-const validateRG = (rg: string): string | null => {
-  const clean = rg.replace(/\D/g, "");
-  if (!clean) return "RG é obrigatório.";
-  if (clean.length < 4) return "RG deve ter ao menos 4 dígitos.";
+const validateRG = (_rg: string): string | null => {
   return null;
 };
 
@@ -251,13 +248,8 @@ export default function EnrollmentScreen() {
       });
   }, []);
 
-  // Steps dinâmicos com base na idade
-  const steps = [
-    "Aluno",
-    isAdult ? "Contato e Endereço" : "Responsável Legal",
-    "Turma",
-    "Confirmação"
-  ];
+  // Etapas numéricas (1 a 4)
+  const steps = [1, 2, 3, 4];
 
   const selectedTurma = turmasDb.find((t) => t.id === formData.turma_id);
 
@@ -521,7 +513,6 @@ export default function EnrollmentScreen() {
         ? ([
             "resp_nome",
             "resp_cpf",
-            "resp_rg",
             "resp_email",
             "resp_telefone",
             "resp_endereco",
@@ -529,8 +520,6 @@ export default function EnrollmentScreen() {
             "resp_bairro"
           ] as const)
         : ([
-            "resp_cpf",
-            "resp_rg",
             "resp_email",
             "resp_telefone",
             "resp_endereco",
@@ -539,7 +528,7 @@ export default function EnrollmentScreen() {
           ] as const);
 
       fields.forEach((field) => {
-        const val = field === "resp_cpf" && isAdult && !formData.resp_cpf ? formData.aluno_cpf : formData[field];
+        const val = formData[field];
         const err = validateField(field, val, formData);
         if (err) stepErrors[field] = err;
       });
@@ -566,16 +555,24 @@ export default function EnrollmentScreen() {
         "aluno_experiencia"
       ].forEach((f) => (touchedFields[f] = true));
     } else if (targetStep === 1) {
-      [
-        "resp_nome",
-        "resp_cpf",
-        "resp_rg",
-        "resp_email",
-        "resp_telefone",
-        "resp_endereco",
-        "resp_cep",
-        "resp_bairro"
-      ].forEach((f) => (touchedFields[f] = true));
+      const fields = isMinor
+        ? [
+            "resp_nome",
+            "resp_cpf",
+            "resp_email",
+            "resp_telefone",
+            "resp_endereco",
+            "resp_cep",
+            "resp_bairro"
+          ]
+        : [
+            "resp_email",
+            "resp_telefone",
+            "resp_endereco",
+            "resp_cep",
+            "resp_bairro"
+          ];
+      fields.forEach((f) => (touchedFields[f] = true));
     } else if (targetStep === 2) {
       touchedFields.turma_id = true;
     }
@@ -688,7 +685,7 @@ export default function EnrollmentScreen() {
           const firstErrField = data.errors[0]?.field;
           if (["aluno_nome", "aluno_nascimento", "aluno_sexo", "aluno_cpf", "aluno_escola"].includes(firstErrField)) {
             setStep(0);
-          } else if (["resp_nome", "resp_cpf", "resp_rg", "resp_email", "resp_telefone", "resp_endereco", "resp_cep", "resp_bairro"].includes(firstErrField)) {
+          } else if (["resp_nome", "resp_cpf", "resp_email", "resp_telefone", "resp_endereco", "resp_cep", "resp_bairro"].includes(firstErrField)) {
             setStep(1);
           } else if (firstErrField === "turma_id") {
             setStep(2);
@@ -756,17 +753,18 @@ export default function EnrollmentScreen() {
         <div className="flex gap-8">
           {/* Formulário Principal */}
           <div className="flex-1 max-w-3xl">
-            {/* Stepper */}
-            <div className="flex items-center mb-8">
-              {steps.map((s, i) => {
+            {/* Stepper com apenas os números */}
+            <div className="flex items-center justify-center mb-8 px-4">
+              {steps.map((_s, i) => {
                 const isCompleted = i < step;
                 const isCurrent = i === step;
                 return (
-                  <div key={s} className="flex items-center">
+                  <div key={i} className="flex items-center">
                     <button
                       type="button"
                       onClick={() => handleStepClick(i as FormStep)}
-                      className="flex flex-col items-center gap-1.5 cursor-pointer focus:outline-none"
+                      className="flex items-center justify-center cursor-pointer focus:outline-none"
+                      title={`Etapa ${i + 1}`}
                     >
                       <div
                         className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
@@ -774,17 +772,14 @@ export default function EnrollmentScreen() {
                             ? "bg-green-500 text-white"
                             : isCurrent
                             ? "bg-amber-500 text-white shadow-md shadow-amber-200"
-                            : "bg-gray-100 text-gray-400"
+                            : "bg-gray-100 text-gray-400 hover:bg-gray-200"
                         }`}
                       >
                         {isCompleted ? <CheckCircle size={17} /> : i + 1}
                       </div>
-                      <span className={`text-xs font-semibold whitespace-nowrap ${isCurrent ? "text-amber-700" : "text-gray-400"}`}>
-                        {s}
-                      </span>
                     </button>
                     {i < steps.length - 1 && (
-                      <div className={`flex-1 h-0.5 mx-2 mb-5 min-w-[40px] ${i < step ? "bg-green-400" : "bg-gray-200"}`} />
+                      <div className={`w-16 sm:w-28 h-0.5 mx-3 ${i < step ? "bg-green-400" : "bg-gray-200"}`} />
                     )}
                   </div>
                 );
@@ -973,96 +968,61 @@ export default function EnrollmentScreen() {
               {/* ==================================================== */}
               {step === 1 && (
                 <div>
-                  {isAdult ? (
-                    <div className="mb-5 p-4 bg-purple-50 border border-purple-200 rounded-xl flex items-center gap-3">
-                      <UserCheck size={20} className="text-purple-600 shrink-0" />
-                      <div>
-                        <p className="text-sm font-bold text-purple-950">Aluno Maior de Idade (18+ anos)</p>
-                        <p className="text-xs text-purple-700">
-                          Como você é maior de idade, os dados de identificação foram atribuídos a você mesmo como responsável. Preencha abaixo seus dados de contato e endereço.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mb-5">
-                      <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300] mb-1">
-                        Dados do responsável legal
-                      </h2>
-                      <p className="text-xs text-gray-400">
-                        Como o aluno é menor de idade ({alunoAge !== null ? `${alunoAge} anos` : "menor de 18"}), é obrigatório informar os dados do responsável legal. O CPF do responsável não pode ser igual ao do aluno.
-                      </p>
-                    </div>
-                  )}
+                  <div className="mb-5">
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300] mb-1">
+                      {isAdult ? "Dados complementares" : "Dados do responsável legal"}
+                    </h2>
+                    <p className="text-xs text-gray-400">
+                      {isAdult
+                        ? "Informe seus dados de contato e endereço para a conclusão da matrícula."
+                        : `Como o aluno é menor de idade (${alunoAge !== null ? `${alunoAge} anos` : "menor de 18"}), é obrigatório informar os dados do responsável legal. O CPF do responsável não pode ser igual ao do aluno.`}
+                    </p>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-5">
-                    {/* Nome do Responsável (Apenas se menor; se adulto já vem preenchido) */}
-                    {isMinor ? (
-                      <div className="col-span-2">
-                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                          Nome completo do responsável <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          name="resp_nome"
-                          value={formData.resp_nome}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          placeholder="Nome e sobrenome do responsável legal"
-                          className={getInputClass("resp_nome")}
-                        />
-                        {(touched.resp_nome || submitAttempted) && errors.resp_nome && (
-                          <p className="text-red-600 text-xs font-medium mt-1.5 flex items-center gap-1">
-                            <AlertCircle size={13} /> {errors.resp_nome}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="col-span-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                        <p className="text-xs font-semibold text-gray-700">Nome do Titular/Responsável:</p>
-                        <p className="text-sm font-bold text-gray-900">{formData.aluno_nome || "Aluno Adulto"}</p>
-                      </div>
+                    {/* Se menor: Nome e CPF do Responsável */}
+                    {isMinor && (
+                      <>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                            Nome completo do responsável <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            name="resp_nome"
+                            value={formData.resp_nome}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            placeholder="Nome e sobrenome do responsável legal"
+                            className={getInputClass("resp_nome")}
+                          />
+                          {(touched.resp_nome || submitAttempted) && errors.resp_nome && (
+                            <p className="text-red-600 text-xs font-medium mt-1.5 flex items-center gap-1">
+                              <AlertCircle size={13} /> {errors.resp_nome}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="col-span-2">
+                          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                            CPF do responsável legal <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            name="resp_cpf"
+                            value={formData.resp_cpf}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            maxLength={14}
+                            placeholder="000.000.000-00"
+                            className={getInputClass("resp_cpf")}
+                          />
+                          {(touched.resp_cpf || submitAttempted) && errors.resp_cpf && (
+                            <p className="text-red-600 text-xs font-medium mt-1.5 flex items-center gap-1">
+                              <AlertCircle size={13} /> {errors.resp_cpf}
+                            </p>
+                          )}
+                        </div>
+                      </>
                     )}
-
-                    {/* CPF do Responsável / Titular */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                        {isMinor ? "CPF do responsável legal" : "CPF do titular"} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        name="resp_cpf"
-                        value={formData.resp_cpf}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        maxLength={14}
-                        placeholder="000.000.000-00"
-                        className={getInputClass("resp_cpf")}
-                      />
-                      {(touched.resp_cpf || submitAttempted) && errors.resp_cpf && (
-                        <p className="text-red-600 text-xs font-medium mt-1.5 flex items-center gap-1">
-                          <AlertCircle size={13} /> {errors.resp_cpf}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* RG */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                        {isMinor ? "RG do responsável" : "RG do aluno titular"} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        name="resp_rg"
-                        value={formData.resp_rg}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        maxLength={20}
-                        placeholder="Número do documento"
-                        className={getInputClass("resp_rg")}
-                      />
-                      {(touched.resp_rg || submitAttempted) && errors.resp_rg && (
-                        <p className="text-red-600 text-xs font-medium mt-1.5 flex items-center gap-1">
-                          <AlertCircle size={13} /> {errors.resp_rg}
-                        </p>
-                      )}
-                    </div>
 
                     {/* E-mail */}
                     <div>
@@ -1328,7 +1288,7 @@ export default function EnrollmentScreen() {
                         <div className="flex items-center gap-2">
                           <CheckCircle size={17} className="text-green-600" />
                           <span className="font-semibold text-sm text-gray-800">
-                            {isAdult ? "Titular e Contato" : "Responsável Legal"}
+                            {isAdult ? "Dados Complementares" : "Responsável Legal"}
                           </span>
                         </div>
                         <button
@@ -1340,8 +1300,8 @@ export default function EnrollmentScreen() {
                         </button>
                       </div>
                       <ul className="ml-6 space-y-1 text-xs text-gray-600">
-                        <li><strong>Nome:</strong> {isAdult ? formData.aluno_nome : formData.resp_nome}</li>
-                        <li><strong>CPF:</strong> {formData.resp_cpf || formData.aluno_cpf} | <strong>RG:</strong> {formData.resp_rg}</li>
+                        {isMinor && <li><strong>Nome:</strong> {formData.resp_nome}</li>}
+                        {isMinor && <li><strong>CPF:</strong> {formData.resp_cpf}</li>}
                         <li><strong>Contato:</strong> {formData.resp_telefone} | {formData.resp_email}</li>
                         <li><strong>Endereço:</strong> {formData.resp_endereco} - {formData.resp_bairro} (CEP: {formData.resp_cep})</li>
                       </ul>

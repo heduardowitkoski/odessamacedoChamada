@@ -170,8 +170,8 @@ export const validateAlunoPayload = (
     }
   }
 
-  if (!payload?.resp_rg || payload.resp_rg.trim().length < 4) {
-    errors.push({ field: 'resp_rg', message: 'RG é obrigatório (mínimo 4 caracteres).' });
+  if (payload?.resp_rg && payload.resp_rg.trim().length > 0 && payload.resp_rg.trim().length < 4) {
+    errors.push({ field: 'resp_rg', message: 'RG deve ter no mínimo 4 caracteres.' });
   }
 
   if (!payload?.resp_email) {
