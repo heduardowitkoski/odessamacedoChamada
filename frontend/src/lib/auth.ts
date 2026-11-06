@@ -23,13 +23,11 @@ export const DEMO_USERS: Record<UserRole, UserProfile> = {
     avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&auto=format',
   },
   professor: {
-    id: 'usr-prof-1',
-    email: 'carlos.eduardo@cultura.bage.rs.gov.br',
-    name: 'Prof. Carlos Eduardo',
+    id: 'usr-prof-henrique',
+    email: 'henriquestorniolo@gmail.com',
+    name: 'Prof. Henrique Storniolo Rossal',
     role: 'professor',
     cargo: 'Professor de Artes Visuais e Desenho',
-    turmaId: 'infantil-a',
-    turmaNome: 'Turma Infantil A & Juvenil A',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&auto=format',
   },
   responsavel: {
