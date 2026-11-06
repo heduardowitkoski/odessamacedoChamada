@@ -66,6 +66,7 @@ describe('DatabaseService', () => {
       resp_nome: 'Maria Drummond',
       resp_telefone: '(53) 98888-7777',
       turma_id: turma.id,
+      status: 'Ativo',
     });
 
     expect(aluno).toBeDefined();
@@ -90,6 +91,7 @@ describe('DatabaseService', () => {
       resp_nome: 'Pai da Ana',
       resp_telefone: '(53) 99999-1111',
       turma_id: turma.id,
+      status: 'Ativo',
     });
 
     // Registra 3 faltas

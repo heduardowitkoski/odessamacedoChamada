@@ -482,7 +482,7 @@ export class DatabaseService implements OnModuleInit {
       selectedTurma = this.memoryDb.turmas[0];
     }
 
-    const status = 'Fila';
+    const status = dto.status || 'Fila';
     
     const novo: Aluno = {
       id: randomUUID(),

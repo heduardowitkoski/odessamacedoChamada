@@ -100,6 +100,7 @@ export class AlunosService {
 
     // Fallback direto ao Supabase
     const status = 'Fila';
+    const supabase = this.supabaseService.getClient();
     
     const { data, error } = await supabase
       .from('alunos')
@@ -113,13 +114,6 @@ export class AlunosService {
 
     if (error) {
       throw new InternalServerErrorException(error.message);
-    }
-
-    if (status === 'Ativo') {
-      await supabase
-        .from('turmas')
-        .update({ capacidade: turmaWithAge.capacidade - 1 })
-        .eq('id', createAlunoDto.turma_id);
     }
 
     return data;
