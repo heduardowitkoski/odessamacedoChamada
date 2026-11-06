@@ -18,14 +18,11 @@ export class FrequenciasService {
   ) {}
 
   async buscarPorTurmaEData(turma_id: string, dataStr: string) {
-    // 1. Resposta Instantânea da RAM via DatabaseService (< 1ms)
     if (this.databaseService) {
       return this.databaseService.getFrequencias(turma_id, dataStr);
     }
 
-    // Fallback direto ao Supabase
     const supabase = this.supabaseService.getClient();
-
     const { data: alunos, error: alunosError } = await supabase
       .from('alunos')
       .select('*')
@@ -36,10 +33,7 @@ export class FrequenciasService {
     if (alunosError) {
       throw new InternalServerErrorException('Erro ao buscar alunos: ' + alunosError.message);
     }
-
-    if (!alunos || alunos.length === 0) {
-      return [];
-    }
+    if (!alunos || alunos.length === 0) return [];
 
     const alunoIds = alunos.map((a: any) => a.id);
     const { data: frequencias, error: freqError } = await supabase
@@ -89,19 +83,37 @@ export class FrequenciasService {
     });
   }
 
+  async buscarAlunosPorTurmaComStats(turmaId: string) {
+    if (this.databaseService) {
+      return this.databaseService.getAlunosPorTurma(turmaId);
+    }
+    return { turma: null, alunos: [], totalAlunos: 0, ativos: 0, fila: 0 };
+  }
+
+  async buscarHistoricoAluno(alunoId: string) {
+    if (this.databaseService) {
+      return this.databaseService.getAlunoHistorico(alunoId);
+    }
+    return null;
+  }
+
+  async justificarFalta(alunoId: string, dataStr: string, observacao: string) {
+    if (this.databaseService) {
+      return this.databaseService.justificarFalta(alunoId, dataStr, observacao);
+    }
+    return { success: false, message: 'Serviço não disponível' };
+  }
+
   async salvarLote(turma_id: string, dataStr: string, registros: RegistroFrequenciaDto[]) {
     if (!turma_id || !dataStr || !Array.isArray(registros)) {
       throw new BadRequestException('Parâmetros inválidos para lançamento de chamada.');
     }
 
-    // 1. Resposta Instantânea via DatabaseService (< 1ms)
     if (this.databaseService) {
       return this.databaseService.saveFrequencias(turma_id, dataStr, registros);
     }
 
-    // Fallback direto ao Supabase
     const supabase = this.supabaseService.getClient();
-
     const payload = registros.map((r) => {
       const presente = r.status === 'PRESENTE';
       let justificativa = r.observacao || null;
@@ -130,66 +142,10 @@ export class FrequenciasService {
   }
 
   async buscarAlertasFaltas() {
-    // 1. Resposta Instantânea da RAM via DatabaseService (< 1ms)
-    // Sem gargalo N+1 e mantendo matrícula Ativa
     if (this.databaseService) {
       return this.databaseService.getAlertasFaltas();
     }
-
-    // Fallback otimizado com busca em lote (Batch query)
-    const supabase = this.supabaseService.getClient();
-
-    const { data: alunos, error: alunosError } = await supabase
-      .from('alunos')
-      .select('*, turmas(*)')
-      .neq('status', 'Inativo');
-
-    if (alunosError) {
-      throw new InternalServerErrorException('Erro ao buscar alunos para alertas: ' + alunosError.message);
-    }
-
-    if (!alunos || alunos.length === 0) return [];
-
-    const alunoIds = alunos.map((a: any) => a.id);
-    const { data: freqs, error: freqError } = await supabase
-      .from('frequencias')
-      .select('*')
-      .in('aluno_id', alunoIds)
-      .order('data', { ascending: false });
-
-    if (freqError) {
-      throw new InternalServerErrorException('Erro ao buscar frequências para alertas: ' + freqError.message);
-    }
-
-    const freqsMap = new Map<string, any[]>();
-    for (const f of freqs || []) {
-      const list = freqsMap.get(f.aluno_id) || [];
-      if (list.length < 10) list.push(f);
-      freqsMap.set(f.aluno_id, list);
-    }
-
-    const alertas = [];
-    for (const aluno of alunos) {
-      const studentFreqs = freqsMap.get(aluno.id) || [];
-      let faltasConsecutivas = 0;
-      for (const freq of studentFreqs) {
-        if (freq.presente === false && (!freq.justificativa || !freq.justificativa.startsWith('[JUSTIFICADA]'))) {
-          faltasConsecutivas++;
-        } else {
-          break;
-        }
-      }
-
-      if (faltasConsecutivas >= 3) {
-        alertas.push({
-          aluno,
-          faltasConsecutivas,
-          ultimaFalta: studentFreqs[0]?.data,
-        });
-      }
-    }
-
-    return alertas;
+    return [];
   }
 
   async buscarMinhasFaltasPorEmail(email: string) {
@@ -197,186 +153,72 @@ export class FrequenciasService {
       throw new BadRequestException('E-mail do responsável é obrigatório.');
     }
 
-    // 1. Resposta Instantânea da RAM via DatabaseService (< 1ms)
     if (this.databaseService) {
       return this.databaseService.getMinhasFaltasPorEmail(email);
     }
-
-    // Fallback com batch query
-    const cleanEmail = email.trim().toLowerCase();
-    const supabase = this.supabaseService.getClient();
-
-    const { data: alunos, error: alunosError } = await supabase
-      .from('alunos')
-      .select('*, turmas(*)')
-      .ilike('resp_email', cleanEmail)
-      .neq('status', 'Inativo')
-      .order('aluno_nome', { ascending: true });
-
-    if (alunosError) {
-      throw new InternalServerErrorException('Erro ao buscar alunos: ' + alunosError.message);
-    }
-
-    if (!alunos || alunos.length === 0) {
-      return { alunos: [] };
-    }
-
-    const alunoIds = alunos.map((a: any) => a.id);
-    const { data: freqs, error: freqsError } = await supabase
-      .from('frequencias')
-      .select('*')
-      .in('aluno_id', alunoIds)
-      .order('data', { ascending: false });
-
-    if (freqsError) {
-      throw new InternalServerErrorException('Erro ao buscar frequências: ' + freqsError.message);
-    }
-
-    const freqsMap = new Map<string, any[]>();
-    for (const f of freqs || []) {
-      const list = freqsMap.get(f.aluno_id) || [];
-      list.push(f);
-      freqsMap.set(f.aluno_id, list);
-    }
-
-    const resultadoAlunos = [];
-
-    for (const aluno of alunos) {
-      const studentFreqs = freqsMap.get(aluno.id) || [];
-      const historico = studentFreqs.map((f: any) => {
-        let status: 'PRESENTE' | 'FALTA' | 'JUSTIFICADA' = 'PRESENTE';
-        let justificativa = f.justificativa || '';
-
-        if (f.presente) {
-          status = 'PRESENTE';
-        } else if (justificativa && justificativa.startsWith('[JUSTIFICADA]')) {
-          status = 'JUSTIFICADA';
-          justificativa = justificativa.replace('[JUSTIFICADA]', '').trim();
-        } else {
-          status = 'FALTA';
-        }
-
-        return {
-          id: f.id,
-          data: f.data,
-          status,
-          justificativa,
-        };
-      });
-
-      const totalAulas = historico.length;
-      const presencas = historico.filter((h) => h.status === 'PRESENTE').length;
-      const justificadas = historico.filter((h) => h.status === 'JUSTIFICADA').length;
-      const faltas = historico.filter((h) => h.status === 'FALTA').length;
-      const frequenciaPercentual = totalAulas > 0
-        ? Math.round(((presencas + justificadas) / totalAulas) * 100)
-        : 100;
-
-      resultadoAlunos.push({
-        id: aluno.id,
-        aluno_nome: aluno.aluno_nome,
-        resp_nome: aluno.resp_nome,
-        resp_email: aluno.resp_email,
-        resp_telefone: aluno.resp_telefone,
-        turma: aluno.turmas,
-        status: aluno.status,
-        stats: {
-          totalAulas,
-          presencas,
-          faltas,
-          justificadas,
-          frequenciaPercentual,
-        },
-        historico,
-      });
-    }
-
-    return { alunos: resultadoAlunos };
+    return { alunos: [] };
   }
 
   async exportarCSV(turmaId?: string, dataInicio?: string, dataFim?: string): Promise<string> {
-    const supabase = this.supabaseService.getClient();
+    if (this.databaseService) {
+      const alunos = await this.databaseService.getAlunos();
+      const turmas = await this.databaseService.getTurmas();
+      const mapTurmas = new Map<string, any>();
+      for (const t of turmas) mapTurmas.set(t.id, t);
 
-    // Busca alunos (filtrado por turma se fornecido)
-    let alunosQuery = supabase
-      .from('alunos')
-      .select('*, turmas(*)')
-      .neq('status', 'Inativo')
-      .order('aluno_nome', { ascending: true });
+      const alunosFiltrados = turmaId ? alunos.filter((a) => a.turma_id === turmaId) : alunos;
 
-    if (turmaId) {
-      alunosQuery = alunosQuery.eq('turma_id', turmaId);
+      const linhas: string[] = [];
+      linhas.push('Aluno;Turma;Turno;Status Matrícula;Total Aulas;Presenças;Faltas;Faltas Justificadas;% Frequência');
+
+      for (const aluno of alunosFiltrados) {
+        const hist = await this.databaseService.getAlunoHistorico(aluno.id);
+        const stats = hist?.stats || { totalAulas: 0, presencas: 0, faltas: 0, justificadas: 0, frequenciaPercentual: 100 };
+        const turma = mapTurmas.get(aluno.turma_id);
+
+        linhas.push([
+          `"${aluno.aluno_nome || 'Aluno'}"`,
+          `"${turma?.nome || 'Sem Turma'}"`,
+          `"${turma?.turno || ''}"`,
+          `"${aluno.status}"`,
+          stats.totalAulas,
+          stats.presencas,
+          stats.faltas,
+          stats.justificadas,
+          `"${stats.frequenciaPercentual}%"`,
+        ].join(';'));
+      }
+
+      return linhas.join('\n');
     }
 
-    const { data: alunos, error: alunosError } = await alunosQuery;
-    if (alunosError) throw new InternalServerErrorException(alunosError.message);
-
-    const linhas: string[] = [];
-    linhas.push('Aluno;Turma;Turno;Status Matrícula;Total Aulas;Presenças;Faltas;Faltas Justificadas;% Frequência');
-
-    for (const aluno of alunos || []) {
-      let freqQuery = supabase
-        .from('frequencias')
-        .select('*')
-        .eq('aluno_id', aluno.id)
-        .order('data', { ascending: true });
-
-      if (dataInicio) freqQuery = freqQuery.gte('data', dataInicio);
-      if (dataFim) freqQuery = freqQuery.lte('data', dataFim);
-
-      const { data: freqs } = await freqQuery;
-      const historico = freqs || [];
-      const totalAulas = historico.length;
-      const presencas = historico.filter((f: any) => f.presente).length;
-      const justificadas = historico.filter(
-        (f: any) => !f.presente && f.justificativa?.startsWith('[JUSTIFICADA]'),
-      ).length;
-      const faltas = totalAulas - presencas - justificadas;
-      const pct = totalAulas > 0 ? Math.round(((presencas + justificadas) / totalAulas) * 100) : 100;
-
-      linhas.push(
-        [
-          aluno.aluno_nome,
-          aluno.turmas?.nome || '',
-          aluno.turmas?.turno || '',
-          aluno.status,
-          totalAulas,
-          presencas,
-          faltas,
-          justificadas,
-          `${pct}%`,
-        ].join(';'),
-      );
-    }
-
-    return linhas.join('\n');
+    return 'Aluno;Turma;Turno;Status Matrícula;Total Aulas;Presenças;Faltas;Faltas Justificadas;% Frequência';
   }
 
   async enviarEmailAlertaFaltas(alunoId: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = this.supabaseService.getClient();
+    let aluno: any = null;
+    let studentFreqs: any[] = [];
 
-    const { data: aluno } = await supabase
-      .from('alunos')
-      .select('*, turmas(*)')
-      .eq('id', alunoId)
-      .single();
-
-    if (!aluno || !aluno.resp_email) {
-      throw new BadRequestException('Aluno não encontrado ou sem e-mail de responsável.');
+    if (this.databaseService) {
+      const hist = await this.databaseService.getAlunoHistorico(alunoId);
+      if (hist) {
+        aluno = hist.aluno;
+        studentFreqs = hist.historico;
+      }
     }
 
-    // Calcula faltas consecutivas
-    const { data: freqs } = await supabase
-      .from('frequencias')
-      .select('*')
-      .eq('aluno_id', alunoId)
-      .order('data', { ascending: false })
-      .limit(10);
+    if (!aluno) {
+      throw new BadRequestException('Aluno não encontrado para envio de alerta.');
+    }
+
+    if (!aluno.resp_email) {
+      throw new BadRequestException('Aluno não possui e-mail de responsável cadastrado.');
+    }
 
     let faltasConsecutivas = 0;
     let ultimaFalta = '';
-    for (const freq of freqs || []) {
-      if (freq.presente === false && (!freq.justificativa || !freq.justificativa.startsWith('[JUSTIFICADA]'))) {
+    for (const freq of studentFreqs) {
+      if (freq.status === 'FALTA') {
         faltasConsecutivas++;
         if (!ultimaFalta) ultimaFalta = freq.data;
       } else {

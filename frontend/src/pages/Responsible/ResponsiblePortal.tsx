@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { getCurrentUser, clearUserSession } from '../../lib/auth';
 import MuralBoard from '../../components/mural/MuralBoard';
+import { getApiBase } from '../../lib/api';
 import {
   Pencil,
   LogOut,
@@ -21,7 +22,7 @@ import {
   CheckSquare
 } from 'lucide-react';
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = getApiBase();
 
 interface RegistroFrequencia {
   id: string;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, MoreHorizontal, UserX, RefreshCw, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles
+  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Avatar } from "../../components/ui/Avatar";
@@ -10,9 +10,12 @@ import { supabase } from "../../lib/supabase";
 import MuralBoard from "../../components/mural/MuralBoard";
 import { clearUserSession } from "../../lib/auth";
 import ReportsTab from "./ReportsTab";
-
-const API_BASE = import.meta.env.VITE_API_URL || "https://odessamacedochamada.onrender.com";
-
+import StudentHistoryModal from "../../components/ui/StudentHistoryModal";
+import {
+  getApiBase,
+  fetchAlunosPorTurmaComStats,
+  type TurmaAlunosResumo
+} from "../../lib/api";
 function extractAgeRange(nome: string): { idade_minima: number; idade_maxima: number } {
   if (!nome) return { idade_minima: 0, idade_maxima: 120 };
   const matchRange = nome.match(/(\d+)\s*a\s*(\d+)/i);
@@ -47,6 +50,15 @@ export default function AdminDashboard() {
   const [alertasFaltas, setAlertasFaltas] = useState<any[]>([]);
   const [savingFreq, setSavingFreq] = useState<boolean>(false);
 
+  // Estados para Detalhes da Turma e Alunos
+  const [selectedTurmaView, setSelectedTurmaView] = useState<any>(null);
+  const [turmaAlunosData, setTurmaAlunosData] = useState<TurmaAlunosResumo | null>(null);
+  const [loadingTurmaView, setLoadingTurmaView] = useState<boolean>(false);
+  const [filtroAlunosTurma, setFiltroAlunosTurma] = useState<string>("");
+
+  // Estado para Modal de Histórico Individual do Aluno
+  const [studentHistoryModalId, setStudentHistoryModalId] = useState<string | null>(null);
+
   // Estados para Criar Nova Turma
   const [showModalNovaTurma, setShowModalNovaTurma] = useState(false);
   const [novaTurma, setNovaTurma] = useState({ nome: '', turno: '', capacidade: 15, idade_minima: 5, idade_maxima: 17 });
@@ -77,23 +89,23 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   const fetchAlunos = () => {
-    fetch(`${API_BASE}/alunos`)
+    fetch(`${getApiBase()}/alunos`)
       .then(res => res.json())
-      .then(data => setAlunosDb(data))
+      .then(data => setAlunosDb(Array.isArray(data) ? data : []))
       .catch(err => console.error(err));
   };
 
   const fetchTurmas = () => {
-    fetch(`${API_BASE}/turmas`)
+    fetch(`${getApiBase()}/turmas`)
       .then(res => res.json())
       .then(data => {
-        setTurmasDb(data);
+        setTurmasDb(Array.isArray(data) ? data : []);
       })
       .catch(err => console.error(err));
   };
 
   const fetchAlertasFaltas = () => {
-    fetch(`${API_BASE}/frequencias/alertas`)
+    fetch(`${getApiBase()}/frequencias/alertas`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setAlertasFaltas(data);
@@ -103,7 +115,7 @@ export default function AdminDashboard() {
 
   const fetchFrequencia = (turmaId: string, dataStr: string) => {
     if (!turmaId) return;
-    fetch(`${API_BASE}/frequencias/turma/${turmaId}?data=${dataStr}`)
+    fetch(`${getApiBase()}/frequencias/turma/${turmaId}?data=${dataStr}`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -122,7 +134,7 @@ export default function AdminDashboard() {
 
   const fetchAdmins = () => {
     setLoadingAdmins(true);
-    fetch(`${API_BASE}/admin/usuarios`)
+    fetch(`${getApiBase()}/admin/usuarios`)
       .then(res => res.json())
       .then(data => {
         setAdmins(Array.isArray(data) ? data : []);
@@ -132,6 +144,31 @@ export default function AdminDashboard() {
         console.error(err);
         setLoadingAdmins(false);
       });
+  };
+
+  // Abrir Turma para visualizar todos os alunos matriculados e estatísticas
+  const handleOpenTurma = async (turma: any) => {
+    setSelectedTurmaView(turma);
+    setLoadingTurmaView(true);
+    try {
+      const data = await fetchAlunosPorTurmaComStats(turma.id);
+      setTurmaAlunosData(data);
+    } catch (err) {
+      console.error("Erro ao carregar alunos da turma:", err);
+    } finally {
+      setLoadingTurmaView(false);
+    }
+  };
+
+  const refreshTurmaAlunos = async () => {
+    if (selectedTurmaView) {
+      try {
+        const data = await fetchAlunosPorTurmaComStats(selectedTurmaView.id);
+        setTurmaAlunosData(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
   useEffect(() => {
@@ -191,7 +228,7 @@ export default function AdminDashboard() {
     }
     setSavingAdmin(true);
     try {
-      const res = await fetch(`${API_BASE}/admin/usuarios`, {
+      const res = await fetch(`${getApiBase()}/admin/usuarios`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(novoAdmin),
@@ -222,7 +259,7 @@ export default function AdminDashboard() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/admin/usuarios/${admin.id}`, {
+      const res = await fetch(`${getApiBase()}/admin/usuarios/${admin.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -247,7 +284,7 @@ export default function AdminDashboard() {
     if (!alunoParaChamar) return;
     setChamandoAluno(true);
     try {
-      const res = await fetch(`${API_BASE}/alunos/${alunoParaChamar.id}/status`, {
+      const res = await fetch(`${getApiBase()}/alunos/${alunoParaChamar.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -280,7 +317,7 @@ export default function AdminDashboard() {
   const handleDelete = async (aluno: any) => {
     if (!window.confirm(`Deseja realmente remover permanentemente o aluno ${aluno.aluno_nome || aluno.resp_nome} do banco de dados? Esta ação liberará a vaga na turma e apagará o cadastro definitivamente.`)) return;
     try {
-      const res = await fetch(`${API_BASE}/alunos/${aluno.id}`, {
+      const res = await fetch(`${getApiBase()}/alunos/${aluno.id}`, {
         method: "DELETE"
       });
       if (res.ok) {
@@ -289,6 +326,7 @@ export default function AdminDashboard() {
         fetchAlunos();
         fetchTurmas();
         fetchAlertasFaltas();
+        refreshTurmaAlunos();
       } else {
         const err = await res.json();
         alert("Erro ao excluir aluno: " + (err.message || "Tente novamente."));
@@ -318,7 +356,7 @@ export default function AdminDashboard() {
     }
     setSavingFreq(true);
     try {
-      const res = await fetch(`${API_BASE}/frequencias/batch`, {
+      const res = await fetch(`${getApiBase()}/frequencias/batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -335,6 +373,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         alert("Chamada salva com sucesso!");
         fetchAlertasFaltas();
+        refreshTurmaAlunos();
       } else {
         const err = await res.json();
         alert("Erro ao salvar chamada: " + (err.message || "Erro desconhecido"));
@@ -354,7 +393,7 @@ export default function AdminDashboard() {
     }
     setSavingTurma(true);
     try {
-      const res = await fetch(`${API_BASE}/turmas`, {
+      const res = await fetch(`${getApiBase()}/turmas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -402,7 +441,7 @@ export default function AdminDashboard() {
     if (!turmaParaEditar) return;
     setEditandoTurma(true);
     try {
-      const res = await fetch(`${API_BASE}/turmas/${turmaParaEditar.id}`, {
+      const res = await fetch(`${getApiBase()}/turmas/${turmaParaEditar.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -417,6 +456,9 @@ export default function AdminDashboard() {
         alert("Turma atualizada com sucesso!");
         setTurmaParaEditar(null);
         fetchTurmas();
+        if (selectedTurmaView && selectedTurmaView.id === turmaParaEditar.id) {
+          setSelectedTurmaView({ ...selectedTurmaView, ...turmaParaEditar });
+        }
       } else {
         const err = await res.json();
         alert("Erro ao editar turma: " + (err.message || "Erro desconhecido"));
@@ -431,10 +473,13 @@ export default function AdminDashboard() {
   const handleDeleteTurma = async (turma: any) => {
     if (!window.confirm(`Deseja realmente excluir a turma "${turma.nome}"? Esta ação é irreversível.`)) return;
     try {
-      const res = await fetch(`${API_BASE}/turmas/${turma.id}`, { method: "DELETE" });
+      const res = await fetch(`${getApiBase()}/turmas/${turma.id}`, { method: "DELETE" });
       if (res.ok) {
         alert("Turma excluída com sucesso!");
         fetchTurmas();
+        if (selectedTurmaView?.id === turma.id) {
+          setSelectedTurmaView(null);
+        }
       } else {
         const err = await res.json();
         alert("Erro ao excluir: " + (err.message || "Erro desconhecido"));
@@ -445,8 +490,8 @@ export default function AdminDashboard() {
   };
 
   const handleExportCSV = async () => {
-    const turmaId = activeMenu === "Frequência" && selectedTurmaFreq ? selectedTurmaFreq : '';
-    const url = `${API_BASE}/frequencias/exportar${turmaId ? `?turma_id=${turmaId}` : ''}`;
+    const turmaId = activeMenu === "Frequência" && selectedTurmaFreq ? selectedTurmaFreq : (selectedTurmaView ? selectedTurmaView.id : '');
+    const url = `${getApiBase()}/frequencias/exportar${turmaId ? `?turma_id=${turmaId}` : ''}`;
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error('Erro ao gerar relatório');
@@ -465,7 +510,7 @@ export default function AdminDashboard() {
   const handleEnviarAlertaFaltas = async (alunoId: string, alunoNome: string) => {
     if (!window.confirm(`Enviar e-mail de alerta de faltas para o responsável de ${alunoNome}?`)) return;
     try {
-      const res = await fetch(`${API_BASE}/frequencias/alertas/enviar-email`, {
+      const res = await fetch(`${getApiBase()}/frequencias/alertas/enviar-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ aluno_id: alunoId }),
@@ -505,6 +550,28 @@ export default function AdminDashboard() {
     { label: "Turmas com vagas", value: turmasDb.filter(t => t.capacidade > 0).length, icon: <Pencil size={20} />, color: "text-emerald-600", bg: "bg-emerald-100" },
   ];
 
+  // Filtro de alunos dentro da visualização da turma
+  const alunosTurmaFiltrados = (turmaAlunosData?.alunos || []).filter(a => {
+    if (!filtroAlunosTurma.trim()) return true;
+    const term = filtroAlunosTurma.toLowerCase();
+    return (
+      (a.aluno_nome && a.aluno_nome.toLowerCase().includes(term)) ||
+      (a.resp_nome && a.resp_nome.toLowerCase().includes(term)) ||
+      (a.resp_telefone && a.resp_telefone.includes(term))
+    );
+  });
+
+  // Estatísticas agregadas da turma selecionada
+  const mediaFrequenciaTurma = turmaAlunosData?.alunos && turmaAlunosData.alunos.length > 0
+    ? Math.round(turmaAlunosData.alunos.reduce((acc, a) => acc + (a.stats?.frequenciaPercentual || 100), 0) / turmaAlunosData.alunos.length)
+    : 100;
+
+  const totalAulasTurma = turmaAlunosData?.alunos && turmaAlunosData.alunos.length > 0
+    ? Math.max(...turmaAlunosData.alunos.map(a => a.stats?.totalAulas || 0))
+    : 0;
+
+  const alunosEmRiscoTurma = (turmaAlunosData?.alunos || []).filter(a => (a.stats?.faltasConsecutivas || 0) >= 3);
+
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif] flex">
       {/* Sidebar */}
@@ -523,7 +590,9 @@ export default function AdminDashboard() {
           {menuItems.map(({ icon, label, badge, badgeColor }) => (
             <button
               key={label}
-              onClick={() => setActiveMenu(label)}
+              onClick={() => {
+                setActiveMenu(label);
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeMenu === label
                   ? "bg-amber-500 text-white"
@@ -554,7 +623,8 @@ export default function AdminDashboard() {
                 await supabase.auth.signOut().catch(() => {});
                 navigate('/login');
               }}
-              className="text-amber-400/70 hover:text-white transition-colors"
+              className="text-amber-400/70 hover:text-white transition-colors cursor-pointer"
+              title="Sair do Painel"
             >
               <LogOut size={15} />
             </button>
@@ -570,7 +640,7 @@ export default function AdminDashboard() {
               {activeMenu === "Frequência" 
                 ? "Registro de Frequência e Chamada Diária" 
                 : activeMenu === "Turmas" 
-                ? "Gestão de Turmas e Vagas" 
+                ? (selectedTurmaView ? `Turma: ${selectedTurmaView.nome} · Gestão de Alunos` : "Gestão de Turmas e Vagas")
                 : activeMenu === "Mural"
                 ? "Mural de Atividades e Obras"
                 : activeMenu === "Administradores"
@@ -588,17 +658,27 @@ export default function AdminDashboard() {
               )}
             </button>
             {activeMenu !== "Relatórios" && (
-              <button className="flex items-center gap-2 text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50" onClick={handleExportCSV}>
+              <button className="flex items-center gap-2 text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50 cursor-pointer" onClick={handleExportCSV}>
                 <Download size={15} /> Exportar CSV
               </button>
             )}
             {activeMenu === "Turmas" ? (
-              <button 
-                onClick={() => setShowModalNovaTurma(true)} 
-                className="flex items-center gap-2 text-sm text-white bg-amber-500 font-bold rounded-xl px-3.5 py-2 hover:bg-amber-600 transition-colors shadow-xs cursor-pointer"
-              >
-                <Plus size={15} /> Nova turma
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedTurmaView && (
+                  <button
+                    onClick={() => setSelectedTurmaView(null)}
+                    className="flex items-center gap-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 font-semibold rounded-xl px-3.5 py-2 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft size={14} /> Todas as Turmas
+                  </button>
+                )}
+                <button 
+                  onClick={() => setShowModalNovaTurma(true)} 
+                  className="flex items-center gap-2 text-sm text-white bg-amber-500 font-bold rounded-xl px-3.5 py-2 hover:bg-amber-600 transition-colors shadow-xs cursor-pointer"
+                >
+                  <Plus size={15} /> Nova turma
+                </button>
+              </div>
             ) : activeMenu === "Administradores" ? (
               <button 
                 onClick={() => setShowModalNovoAdmin(true)} 
@@ -617,7 +697,7 @@ export default function AdminDashboard() {
         </header>
 
         <div className="flex-1 overflow-auto p-7">
-          {/* Stats */}
+          {/* Stats Principais (exibido na maioria dos módulos) */}
           {activeMenu !== "Relatórios" && (
             <div className="grid grid-cols-4 gap-5 mb-7">
               {stats.map(({ label, value, icon, color, bg }) => (
@@ -634,84 +714,385 @@ export default function AdminDashboard() {
 
           {activeMenu === "Turmas" ? (
             /* --- MÓDULO DE GESTÃO DE TURMAS --- */
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-                  <div>
-                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
-                      Turmas Cadastradas ({turmasDb.length})
-                    </h2>
-                    <p className="text-xs text-gray-500">
-                      Gerencie as turmas disponíveis para inscrição e acompanhe a lotação.
-                    </p>
+            selectedTurmaView ? (
+              /* VISÃO DETALHADA DA TURMA COM SEUS ALUNOS */
+              <div className="space-y-6 animate-in fade-in duration-200">
+                {/* Header da Turma Selecionada */}
+                <div className="bg-white rounded-3xl border border-amber-100 shadow-sm p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-gray-100">
+                    <div className="flex items-start gap-3.5">
+                      <button
+                        onClick={() => setSelectedTurmaView(null)}
+                        className="p-2.5 bg-gray-100 hover:bg-amber-100 hover:text-amber-800 rounded-xl text-gray-600 transition-colors cursor-pointer mt-0.5"
+                        title="Voltar para lista de turmas"
+                      >
+                        <ArrowLeft size={18} />
+                      </button>
+                      <div>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-xl text-[#1C1300]">
+                            {selectedTurmaView.nome}
+                          </h2>
+                          <span className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                            {selectedTurmaView.turno}
+                          </span>
+                          {selectedTurmaView.capacidade > 0 ? (
+                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                              Há {selectedTurmaView.capacidade} vaga(s)
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full">
+                              Turma Cheia
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-2">
+                          <span>Faixa etária recomendada: <strong>{selectedTurmaView.idade_minima != null ? selectedTurmaView.idade_minima : extractAgeRange(selectedTurmaView.nome).idade_minima} a {selectedTurmaView.idade_maxima != null ? selectedTurmaView.idade_maxima : extractAgeRange(selectedTurmaView.nome).idade_maxima} anos</strong></span>
+                          <span>·</span>
+                          <span>Capacidade: <strong>{selectedTurmaView.capacidade} vagas</strong></span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <button
+                        onClick={() => {
+                          setSelectedTurmaFreq(selectedTurmaView.id);
+                          setActiveMenu("Frequência");
+                        }}
+                        className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2.5 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckSquare size={14} /> Fazer Chamada Desta Turma
+                      </button>
+
+                      <Link
+                        to={`/inscrever?turma_id=${selectedTurmaView.id}`}
+                        className="text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5"
+                      >
+                        <Plus size={14} /> Nova Matrícula Aqui
+                      </Link>
+
+                      <button
+                        onClick={() => setTurmaParaEditar(selectedTurmaView)}
+                        className="text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 px-3.5 py-2.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Pencil size={13} /> Editar Turma
+                      </button>
+
+                      <button
+                        onClick={handleExportCSV}
+                        className="text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 px-3.5 py-2.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Download size={13} /> Exportar CSV
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setShowModalNovaTurma(true)}
-                    className="text-xs text-white bg-amber-500 font-bold px-4 py-2.5 rounded-xl hover:bg-amber-600 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <Plus size={15} /> Nova Turma
-                  </button>
+
+                  {/* 4 Mini Cards de Métricas da Turma */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+                    <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">Matriculados</span>
+                      <p className="text-2xl font-black text-gray-900 mt-1">
+                        {turmaAlunosData?.totalAlunos || 0} <span className="text-xs font-medium text-gray-400">/ {selectedTurmaView.capacidade}</span>
+                      </p>
+                    </div>
+
+                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4">
+                      <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">Frequência Média</span>
+                      <p className="text-2xl font-black text-emerald-700 mt-1">
+                        {mediaFrequenciaTurma}%
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4">
+                      <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider block">Aulas Registradas</span>
+                      <p className="text-2xl font-black text-blue-700 mt-1">
+                        {totalAulasTurma} <span className="text-xs font-medium text-gray-400">aulas</span>
+                      </p>
+                    </div>
+
+                    <div className="bg-red-50/50 border border-red-100 rounded-2xl p-4">
+                      <span className="text-[11px] font-bold text-red-800 uppercase tracking-wider block">Alertas de Absenteísmo</span>
+                      <p className="text-2xl font-black text-red-700 mt-1">
+                        {alunosEmRiscoTurma.length} <span className="text-xs font-medium text-gray-400">aluno(s)</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {turmasDb.map((turma) => {
-                    const alunosAtivosTurma = alunosDb.filter(a => a.turma_id === turma.id && a.status === 'Ativo');
-                    const vagas = turma.capacidade;
+                {/* Tabela de Alunos da Turma */}
+                <div className="bg-white rounded-3xl border border-amber-100 shadow-sm p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
+                    <div>
+                      <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                        Alunos Matriculados nesta Turma ({alunosTurmaFiltrados.length})
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Clique em qualquer aluno para abrir o histórico individual de faltas, presenças e justificativas.
+                      </p>
+                    </div>
 
-                    return (
-                      <div key={turma.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs hover:border-amber-300 transition-all flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
-                              <BookOpen size={18} />
-                            </div>
-                            {vagas > 0 ? (
-                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                                Há vagas
-                              </span>
-                            ) : (
-                              <span className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full">
-                                Turma Cheia
-                              </span>
-                            )}
-                          </div>
+                    <div className="relative w-full sm:w-72">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+                      <input
+                        type="text"
+                        placeholder="Buscar aluno ou responsável..."
+                        value={filtroAlunosTurma}
+                        onChange={(e) => setFiltroAlunosTurma(e.target.value)}
+                        className="w-full h-10 pl-10 pr-3.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                      />
+                    </div>
+                  </div>
 
-                          <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300] mb-1">
-                            {turma.nome}
-                          </h3>
-                          <p className="text-xs text-amber-800 font-semibold mb-2">
-                            {turma.turno}
-                          </p>
-                          <span className="inline-block text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md mb-4">
-                            Faixa etária: {turma.idade_minima != null ? turma.idade_minima : extractAgeRange(turma.nome).idade_minima} a {turma.idade_maxima != null ? turma.idade_maxima : extractAgeRange(turma.nome).idade_maxima} anos
-                          </span>
-                        </div>
+                  {loadingTurmaView ? (
+                    <div className="p-12 text-center text-gray-400 text-sm flex flex-col items-center justify-center gap-3">
+                      <Loader2 size={24} className="animate-spin text-amber-500" />
+                      <span>Carregando dados dos alunos e frequência...</span>
+                    </div>
+                  ) : alunosTurmaFiltrados.length === 0 ? (
+                    <div className="p-12 text-center text-gray-400 text-sm bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                      <p className="font-semibold text-gray-600">Nenhum aluno encontrado nesta turma.</p>
+                      <p className="text-xs text-gray-400 mt-1">Você pode inscrever um aluno agora ou chamá-lo da fila de espera.</p>
+                      <Link
+                        to={`/inscrever?turma_id=${selectedTurmaView.id}`}
+                        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors shadow-xs"
+                      >
+                        <Plus size={14} /> Cadastrar Novo Aluno nesta Turma
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400">
+                            <th className="px-4 py-3">Aluno</th>
+                            <th className="px-4 py-3">Responsável / Contato</th>
+                            <th className="px-4 py-3 text-center">Aulas</th>
+                            <th className="px-4 py-3 text-center">Presenças</th>
+                            <th className="px-4 py-3 text-center">Faltas</th>
+                            <th className="px-4 py-3 text-center">Justificadas</th>
+                            <th className="px-4 py-3 text-center">Frequência</th>
+                            <th className="px-4 py-3 text-center">Situação</th>
+                            <th className="px-4 py-3 text-right">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50 text-sm">
+                          {alunosTurmaFiltrados.map((aluno) => {
+                            const stats = aluno.stats || {
+                              totalAulas: 0,
+                              presencas: 0,
+                              faltas: 0,
+                              justificadas: 0,
+                              frequenciaPercentual: 100,
+                              faltasConsecutivas: 0,
+                            };
+                            const isAlert = (stats.faltasConsecutivas || 0) >= 3;
 
-                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                          <span>Alunos ativos: <strong className="text-gray-900">{alunosAtivosTurma.length}</strong></span>
-                          <span>Capacidade total: <strong className="text-gray-900">{turma.capacidade}</strong></span>
-                        </div>
+                            return (
+                              <tr
+                                key={aluno.id}
+                                onClick={() => setStudentHistoryModalId(aluno.id)}
+                                className="hover:bg-amber-50/40 cursor-pointer transition-colors group"
+                              >
+                                <td className="px-4 py-3.5">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar alt={aluno.aluno_nome} size={36} />
+                                    <div>
+                                      <p className="font-bold text-sm text-[#1C1300] group-hover:text-amber-700 transition-colors">
+                                        {aluno.aluno_nome}
+                                      </p>
+                                      <span className="text-[11px] text-gray-400 font-mono">
+                                        Nasc: {aluno.aluno_nascimento ? new Date(aluno.aluno_nascimento).toLocaleDateString() : '—'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
 
-                        <div className="pt-3 border-t border-gray-100 flex gap-2 mt-2">
-                          <button
-                            onClick={() => setTurmaParaEditar({ ...turma })}
-                            className="flex-1 text-xs py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-1"
-                          >
-                            <Pencil size={12} /> Editar
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTurma(turma)}
-                            className="flex-1 text-xs py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
-                          >
-                            <Trash2 size={12} /> Excluir
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                                <td className="px-4 py-3.5 text-xs text-gray-600">
+                                  <p className="font-medium text-gray-900">{aluno.resp_nome}</p>
+                                  {aluno.resp_telefone ? (
+                                    <a
+                                      href={`https://wa.me/55${aluno.resp_telefone.replace(/\D/g, '')}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 mt-0.5"
+                                    >
+                                      <Phone size={11} /> {aluno.resp_telefone}
+                                    </a>
+                                  ) : (
+                                    <span className="text-gray-400">—</span>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3.5 text-center font-bold text-gray-700 text-xs">
+                                  {stats.totalAulas}
+                                </td>
+
+                                <td className="px-4 py-3.5 text-center">
+                                  <span className="inline-block px-2 py-0.5 rounded-md font-bold text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    {stats.presencas}
+                                  </span>
+                                </td>
+
+                                <td className="px-4 py-3.5 text-center">
+                                  <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${
+                                    stats.faltas > 0 ? 'bg-red-50 text-red-700 border border-red-200' : 'text-gray-400'
+                                  }`}>
+                                    {stats.faltas}
+                                  </span>
+                                </td>
+
+                                <td className="px-4 py-3.5 text-center">
+                                  <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${
+                                    stats.justificadas > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'text-gray-400'
+                                  }`}>
+                                    {stats.justificadas}
+                                  </span>
+                                </td>
+
+                                <td className="px-4 py-3.5 text-center">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className={`text-xs font-bold ${
+                                      stats.frequenciaPercentual >= 75 ? 'text-emerald-600' : 'text-red-600'
+                                    }`}>
+                                      {stats.frequenciaPercentual}%
+                                    </span>
+                                    <div className="w-14 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                      <div
+                                        className={`h-1.5 rounded-full ${
+                                          stats.frequenciaPercentual >= 75 ? 'bg-emerald-500' : 'bg-red-500'
+                                        }`}
+                                        style={{ width: `${stats.frequenciaPercentual}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="px-4 py-3.5 text-center">
+                                  {isAlert ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800 border border-red-200">
+                                      <AlertTriangle size={11} /> {stats.faltasConsecutivas} faltas seguidas
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <CheckCircle2 size={11} /> Regular
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3.5 text-right">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setStudentHistoryModalId(aluno.id);
+                                    }}
+                                    className="text-xs px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl font-bold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                                  >
+                                    <FileText size={12} /> Ver Faltas & Histórico
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            ) : (
+              /* GRADE GERAL DE TODAS AS TURMAS */
+              <div className="space-y-6">
+                <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                    <div>
+                      <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
+                        Turmas Cadastradas ({turmasDb.length})
+                      </h2>
+                      <p className="text-xs text-gray-500">
+                        Clique em <strong>"Abrir Turma & Ver Alunos"</strong> para ver todos os estudantes matriculados e acompanhar as faltas individualmente.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowModalNovaTurma(true)}
+                      className="text-xs text-white bg-amber-500 font-bold px-4 py-2.5 rounded-xl hover:bg-amber-600 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Plus size={15} /> Nova Turma
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {turmasDb.map((turma) => {
+                      const alunosAtivosTurma = alunosDb.filter(a => a.turma_id === turma.id && a.status === 'Ativo');
+                      const vagas = turma.capacidade;
+
+                      return (
+                        <div
+                          key={turma.id}
+                          className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs hover:border-amber-400 hover:shadow-md transition-all flex flex-col justify-between group"
+                        >
+                          <div>
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                                <BookOpen size={18} />
+                              </div>
+                              {vagas > 0 ? (
+                                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                  Há vagas ({vagas})
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full">
+                                  Turma Cheia
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300] mb-1 group-hover:text-amber-800 transition-colors">
+                              {turma.nome}
+                            </h3>
+                            <p className="text-xs text-amber-800 font-semibold mb-2">
+                              {turma.turno}
+                            </p>
+                            <span className="inline-block text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md mb-4">
+                              Faixa etária: {turma.idade_minima != null ? turma.idade_minima : extractAgeRange(turma.nome).idade_minima} a {turma.idade_maxima != null ? turma.idade_maxima : extractAgeRange(turma.nome).idade_maxima} anos
+                            </span>
+                          </div>
+
+                          <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 mb-3">
+                            <span>Alunos ativos: <strong className="text-gray-900">{alunosAtivosTurma.length}</strong></span>
+                            <span>Capacidade: <strong className="text-gray-900">{turma.capacidade}</strong></span>
+                          </div>
+
+                          {/* Botão de Destaque: Abrir Turma & Ver Alunos */}
+                          <button
+                            onClick={() => handleOpenTurma(turma)}
+                            className="w-full text-xs py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer mb-2"
+                          >
+                            <Users size={14} /> Abrir Turma & Ver Alunos ({alunosAtivosTurma.length})
+                          </button>
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setTurmaParaEditar({ ...turma })}
+                              className="flex-1 text-xs py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <Pencil size={12} /> Editar
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTurma(turma)}
+                              className="flex-1 text-xs py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 size={12} /> Excluir
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )
           ) : activeMenu === "Frequência" ? (
             /* --- MÓDULO DE FREQUÊNCIA --- */
             <div className="space-y-6">
@@ -742,27 +1123,35 @@ export default function AdminDashboard() {
                             <p className="text-[11px] text-gray-400 mt-1">Última falta registrada: {ultimaFalta}</p>
                           )}
                         </div>
-                        <div className="mt-3 pt-2 border-t border-gray-100 flex gap-2">
-                          <a
-                            href={`https://wa.me/55${aluno.resp_telefone?.replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex-1 text-center text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 py-1.5 rounded-lg font-semibold hover:bg-emerald-100 transition-colors"
-                          >
-                            Contatar Resp.
-                          </a>
+                        <div className="mt-3 pt-2 border-t border-gray-100 flex flex-col gap-2">
                           <button
-                            onClick={() => handleEnviarAlertaFaltas(aluno.id, aluno.aluno_nome)}
-                            className="flex-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 py-1.5 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-1"
+                            onClick={() => setStudentHistoryModalId(aluno.id)}
+                            className="w-full text-center text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                           >
-                            <Mail size={11} /> Enviar Alerta
+                            <FileText size={12} /> Ver Faltas & Justificar
                           </button>
-                          <button
-                            onClick={() => handleDelete(aluno)}
-                            className="flex-1 text-xs bg-red-50 text-red-700 border border-red-200 py-1.5 rounded-lg font-semibold hover:bg-red-100 transition-colors"
-                          >
-                            Excluir do Banco
-                          </button>
+                          <div className="flex gap-2">
+                            <a
+                              href={`https://wa.me/55${aluno.resp_telefone?.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex-1 text-center text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 py-1.5 rounded-lg font-semibold hover:bg-emerald-100 transition-colors"
+                            >
+                              Contatar Resp.
+                            </a>
+                            <button
+                              onClick={() => handleEnviarAlertaFaltas(aluno.id, aluno.aluno_nome)}
+                              className="flex-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 py-1.5 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <Mail size={11} /> Enviar Alerta
+                            </button>
+                            <button
+                              onClick={() => handleDelete(aluno)}
+                              className="flex-1 text-xs bg-red-50 text-red-700 border border-red-200 py-1.5 rounded-lg font-semibold hover:bg-red-100 transition-colors cursor-pointer"
+                            >
+                              Excluir
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -809,14 +1198,14 @@ export default function AdminDashboard() {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={handleMarcarTodosPresentes}
-                      className="text-xs text-amber-700 bg-amber-50 border border-amber-200 font-semibold px-3 py-2 rounded-xl hover:bg-amber-100 transition-colors flex items-center gap-1.5"
+                      className="text-xs text-amber-700 bg-amber-50 border border-amber-200 font-semibold px-3 py-2 rounded-xl hover:bg-amber-100 transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                       <Check size={14} /> Marcar Todos Presentes
                     </button>
                     <button
                       onClick={handleSalvarFrequencia}
                       disabled={savingFreq}
-                      className="text-xs text-white bg-emerald-600 font-bold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                      className="text-xs text-white bg-emerald-600 font-bold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
                     >
                       <Save size={14} /> {savingFreq ? "Salvando..." : "Salvar Chamada"}
                     </button>
@@ -832,6 +1221,7 @@ export default function AdminDashboard() {
                         <th className="px-4 py-3">Responsável / Telefone</th>
                         <th className="px-4 py-3 text-center">Status da Presença</th>
                         <th className="px-4 py-3">Observação / Justificativa</th>
+                        <th className="px-4 py-3 text-right">Histórico</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -840,7 +1230,12 @@ export default function AdminDashboard() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <Avatar alt={item.aluno_nome} size={32} />
-                              <p className="font-semibold text-sm text-[#1C1300]">{item.aluno_nome}</p>
+                              <button
+                                onClick={() => setStudentHistoryModalId(item.aluno_id)}
+                                className="font-semibold text-sm text-[#1C1300] hover:text-amber-700 text-left cursor-pointer"
+                              >
+                                {item.aluno_nome}
+                              </button>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-600">
@@ -886,17 +1281,26 @@ export default function AdminDashboard() {
                           <td className="px-4 py-3">
                             <input
                               type="text"
-                              placeholder="Ex: Atestado, motivo..."
+                              placeholder="Ex: Atestado, viagem, motivo..."
                               value={item.observacao}
                               onChange={(e) => handleObservacaoChange(item.aluno_id, e.target.value)}
                               className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500 text-gray-700"
                             />
                           </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setStudentHistoryModalId(item.aluno_id)}
+                              className="p-1.5 text-gray-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                              title="Ver todas as faltas do aluno"
+                            >
+                              <FileText size={15} />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                       {listaFrequencia.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="px-6 py-12 text-center text-gray-400 text-sm">
+                          <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm">
                             Nenhum aluno ativo matriculado nesta turma.
                           </td>
                         </tr>
@@ -1000,7 +1404,7 @@ export default function AdminDashboard() {
                         <button
                           key={id}
                           onClick={() => setActiveTab(id)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                             activeTab === id ? "bg-amber-500 text-white" : "text-gray-500 hover:bg-gray-100"
                           }`}
                         >
@@ -1044,9 +1448,16 @@ export default function AdminDashboard() {
                             <td className="px-6 py-3">
                               <Badge variant={a.status === "Ativo" ? "green" : "gray"}>{a.status}</Badge>
                             </td>
-                            <td className="px-6 py-3">
-                              <button className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100">
-                                <MoreHorizontal size={15} />
+                            <td className="px-6 py-3 text-right">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setStudentHistoryModalId(a.id);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer mr-1"
+                                title="Ver histórico e faltas"
+                              >
+                                <FileText size={15} />
                               </button>
                             </td>
                           </tr>
@@ -1171,11 +1582,11 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="p-5 pt-0 space-y-2">
-                    <button className="w-full h-10 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2">
-                      <FileText size={14} /> Ver ficha completa
-                    </button>
-                    <button className="w-full h-10 bg-blue-50 text-blue-700 border border-blue-200 text-sm font-bold rounded-xl hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
-                      <RefreshCw size={14} /> Transferir de turma
+                    <button
+                      onClick={() => setStudentHistoryModalId(selectedAluno.id)}
+                      className="w-full h-10 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                    >
+                      <FileText size={14} /> Ver histórico & faltas
                     </button>
                     <button onClick={() => handleDelete(selectedAluno)} className="w-full h-10 bg-red-50 text-red-700 border border-red-200 text-sm font-bold rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center gap-2 cursor-pointer">
                       <UserX size={14} /> Excluir aluno do banco
@@ -1709,6 +2120,19 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Histórico Individual de Faltas e Presenças */}
+      {studentHistoryModalId && (
+        <StudentHistoryModal
+          alunoId={studentHistoryModalId}
+          onClose={() => setStudentHistoryModalId(null)}
+          onUpdate={() => {
+            fetchAlertasFaltas();
+            fetchAlunos();
+            refreshTurmaAlunos();
+          }}
+        />
       )}
     </div>
   );

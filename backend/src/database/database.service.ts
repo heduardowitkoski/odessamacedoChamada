@@ -46,6 +46,15 @@ export interface Frequencia {
   created_at: string;
 }
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  nome?: string;
+  role: string;
+  created_at: string;
+  last_sign_in_at?: string;
+}
+
 export interface MuralItem {
   id: string;
   titulo: string;
@@ -98,13 +107,14 @@ interface MemoryStore {
   alunos: Aluno[];
   frequencias: Frequencia[];
   lista_espera: any[];
+  admins: AdminUser[];
   mural: MuralItem[];
 }
 
 @Injectable()
 export class DatabaseService implements OnModuleInit {
   private readonly logger = new Logger(DatabaseService.name);
-  private readonly filePath = path.join(process.cwd(), 'data', 'db.json');
+  private filePath: string;
 
   // Cache Residente em Memória RAM (< 1ms de resposta)
   private memoryDb: MemoryStore = {
@@ -112,19 +122,65 @@ export class DatabaseService implements OnModuleInit {
     alunos: [],
     frequencias: [],
     lista_espera: [],
+    admins: [],
     mural: [],
   };
 
   private isSyncing = false;
   private lastSync = 0;
-  private readonly SYNC_COOLDOWN_MS = 10000; // 10 segundos entre verificações de segundo plano
+  private readonly SYNC_COOLDOWN_MS = 60000;
+  private supabaseActive = true;
 
   constructor(private readonly supabaseService: SupabaseService) {
+    this.filePath = this.resolveDbPath();
     this.initSyncMemoryFromDisk();
   }
 
   async onModuleInit() {
     this.syncWithSupabaseInBackground();
+  }
+
+  private resolveDbPath(): string {
+    const candidates = [
+      path.join(process.cwd(), 'backend', 'data', 'db.json'),
+      path.join(process.cwd(), 'data', 'db.json'),
+      path.resolve(__dirname, '..', '..', 'data', 'db.json'),
+      path.resolve(__dirname, '..', 'data', 'db.json'),
+      path.resolve(__dirname, '../../data/db.json'),
+    ];
+
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        this.logger.log(`Banco local db.json localizado em: ${p}`);
+        return p;
+      }
+    }
+
+    if (fs.existsSync(path.join(process.cwd(), 'backend'))) {
+      const preferred = path.join(process.cwd(), 'backend', 'data', 'db.json');
+      return preferred;
+    }
+
+    return path.join(process.cwd(), 'data', 'db.json');
+  }
+
+  private getDefaultAdmins(): AdminUser[] {
+    return [
+      {
+        id: 'admin-1',
+        email: 'cultura@bage.rs.gov.br',
+        nome: 'Secretaria de Cultura Bagé',
+        role: 'admin',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'admin-2',
+        email: 'admin@odessamacedo.edu.br',
+        nome: 'Coordenação Odessa Macedo',
+        role: 'admin',
+        created_at: new Date().toISOString(),
+      },
+    ];
   }
 
   private getDefaultMural(): MuralItem[] {
@@ -203,15 +259,17 @@ export class DatabaseService implements OnModuleInit {
         const content = fs.readFileSync(this.filePath, 'utf-8');
         const parsed = JSON.parse(content);
         this.memoryDb = {
-          turmas: parsed.turmas || [],
-          alunos: parsed.alunos || [],
-          frequencias: parsed.frequencias || [],
-          lista_espera: parsed.lista_espera || [],
-          mural: parsed.mural && parsed.mural.length > 0 ? parsed.mural : this.getDefaultMural(),
+          turmas: Array.isArray(parsed.turmas) ? parsed.turmas : [],
+          alunos: Array.isArray(parsed.alunos) ? parsed.alunos : [],
+          frequencias: Array.isArray(parsed.frequencias) ? parsed.frequencias : [],
+          lista_espera: Array.isArray(parsed.lista_espera) ? parsed.lista_espera : [],
+          admins: Array.isArray(parsed.admins) && parsed.admins.length > 0 ? parsed.admins : this.getDefaultAdmins(),
+          mural: Array.isArray(parsed.mural) && parsed.mural.length > 0 ? parsed.mural : this.getDefaultMural(),
         };
-        this.logger.log(`Cache RAM carregado do disco: ${this.memoryDb.turmas.length} turmas, ${this.memoryDb.alunos.length} alunos.`);
+        this.logger.log(`Cache RAM carregado do disco: ${this.memoryDb.turmas.length} turmas, ${this.memoryDb.alunos.length} alunos, ${this.memoryDb.frequencias.length} registros de frequência.`);
       } else {
         this.memoryDb.mural = this.getDefaultMural();
+        this.memoryDb.admins = this.getDefaultAdmins();
         fs.writeFileSync(this.filePath, JSON.stringify(this.memoryDb, null, 2), 'utf-8');
       }
     } catch (e: any) {
@@ -229,8 +287,8 @@ export class DatabaseService implements OnModuleInit {
     }
   }
 
-  // --- SINCRONIZAÇÃO ASSÍNCRONA EM SEGUNDO PLANO (BACKGROUND SYNC COM TIMEOUT DE 3S) ---
   public syncWithSupabaseInBackground() {
+    if (!this.supabaseActive) return;
     if (this.isSyncing) return;
     const now = Date.now();
     if (now - this.lastSync < this.SYNC_COOLDOWN_MS) return;
@@ -245,20 +303,26 @@ export class DatabaseService implements OnModuleInit {
         const [turmasRes, alunosRes, freqRes] = await Promise.all([
           withTimeout<any>(
             client.from('turmas').select('*').order('created_at', { ascending: false }),
-            3000,
-            { data: null, error: null }
+            2000,
+            { data: null, error: { message: 'Timeout' } }
           ),
           withTimeout<any>(
             client.from('alunos').select('*').order('created_at', { ascending: false }),
-            3000,
-            { data: null, error: null }
+            2000,
+            { data: null, error: { message: 'Timeout' } }
           ),
           withTimeout<any>(
             client.from('frequencias').select('*').order('data', { ascending: false }).limit(2000),
-            3000,
-            { data: null, error: null }
+            2000,
+            { data: null, error: { message: 'Timeout' } }
           ),
         ]);
+
+        if (turmasRes?.error?.message?.includes('API key') || alunosRes?.error?.message?.includes('API key')) {
+          this.supabaseActive = false;
+          this.logger.log('Supabase com chave de demonstração. Operando em modo de banco de dados local ultra-rápido.');
+          return;
+        }
 
         let updated = false;
 
@@ -295,7 +359,7 @@ export class DatabaseService implements OnModuleInit {
     })();
   }
 
-  // --- TURMAS (RESPOSTA INSTANTÂNEA < 1ms DA RAM) ---
+  // --- TURMAS (CRUD COMPLETO EM MEMÓRIA & PERSISTÊNCIA EM DISCO) ---
   async getTurmas(): Promise<Turma[]> {
     this.syncWithSupabaseInBackground();
     return this.memoryDb.turmas.map((t) => {
@@ -339,24 +403,48 @@ export class DatabaseService implements OnModuleInit {
 
     this.memoryDb.turmas.unshift(nova);
     this.persistToDiskAsync();
-
-    (async () => {
-      try {
-        const client = this.supabaseService.getClient();
-        await withTimeout<any>(
-          client.from('turmas').insert([nova]),
-          3000,
-          null
-        );
-      } catch (err: any) {
-        this.logger.warn('Aviso ao sincronizar turma no Supabase: ' + err?.message);
-      }
-    })();
-
     return nova;
   }
 
-  // --- ALUNOS (MAPEAMENTO DIRETO EM MEMÓRIA & RESPOSTA INSTANTÂNEA < 1ms) ---
+  async updateTurma(id: string, dto: Partial<Turma>): Promise<Turma | null> {
+    const idx = this.memoryDb.turmas.findIndex((t) => t.id === id);
+    if (idx === -1) return null;
+
+    const fallback = extractAgeRange(dto.nome || this.memoryDb.turmas[idx].nome);
+    this.memoryDb.turmas[idx] = {
+      ...this.memoryDb.turmas[idx],
+      ...dto,
+      capacidade: dto.capacidade != null ? Number(dto.capacidade) : this.memoryDb.turmas[idx].capacidade,
+      idade_minima: dto.idade_minima != null ? Number(dto.idade_minima) : fallback.idade_minima,
+      idade_maxima: dto.idade_maxima != null ? Number(dto.idade_maxima) : fallback.idade_maxima,
+    };
+
+    this.persistToDiskAsync();
+    return this.memoryDb.turmas[idx];
+  }
+
+  async removeTurma(id: string): Promise<{ success: boolean; message: string }> {
+    const temAlunos = this.memoryDb.alunos.some(
+      (a) => a.turma_id === id && a.status !== 'Inativo'
+    );
+    if (temAlunos) {
+      return {
+        success: false,
+        message: 'Não é possível excluir uma turma que possui alunos ativos ou em fila de espera.',
+      };
+    }
+
+    const idx = this.memoryDb.turmas.findIndex((t) => t.id === id);
+    if (idx === -1) {
+      return { success: false, message: 'Turma não encontrada.' };
+    }
+
+    this.memoryDb.turmas.splice(idx, 1);
+    this.persistToDiskAsync();
+    return { success: true, message: 'Turma removida com sucesso.' };
+  }
+
+  // --- ALUNOS (MAPEAMENTO DIRETO EM MEMÓRIA & RESPOSTA INSTANTÂNEA) ---
   async getAlunos(): Promise<Aluno[]> {
     this.syncWithSupabaseInBackground();
 
@@ -375,6 +463,16 @@ export class DatabaseService implements OnModuleInit {
         created_at: a.created_at,
       },
     }));
+  }
+
+  async getAlunoById(id: string): Promise<Aluno | null> {
+    const aluno = this.memoryDb.alunos.find((a) => a.id === id);
+    if (!aluno) return null;
+    const turma = this.memoryDb.turmas.find((t) => t.id === aluno.turma_id);
+    return {
+      ...aluno,
+      turmas: turma,
+    };
   }
 
   async createAluno(dto: any): Promise<Aluno> {
@@ -417,27 +515,6 @@ export class DatabaseService implements OnModuleInit {
     }
 
     this.persistToDiskAsync();
-
-    (async () => {
-      try {
-        const client = this.supabaseService.getClient();
-        await withTimeout<any>(
-          client.from('alunos').insert([novo]),
-          3000,
-          null
-        );
-        if (status === 'Ativo' && selectedTurma) {
-          await withTimeout<any>(
-            client.from('turmas').update({ capacidade: selectedTurma.capacidade }).eq('id', selectedTurma.id),
-            3000,
-            null
-          );
-        }
-      } catch (err: any) {
-        this.logger.warn('Aviso ao sincronizar aluno no Supabase: ' + err?.message);
-      }
-    })();
-
     return {
       ...novo,
       turmas: selectedTurma,
@@ -462,27 +539,6 @@ export class DatabaseService implements OnModuleInit {
     }
 
     this.persistToDiskAsync();
-
-    (async () => {
-      try {
-        const client = this.supabaseService.getClient();
-        await withTimeout<any>(
-          client.from('alunos').update({ status: novoStatus, turma_id }).eq('id', id),
-          3000,
-          null
-        );
-        if (turma) {
-          await withTimeout<any>(
-            client.from('turmas').update({ capacidade: turma.capacidade }).eq('id', turma_id),
-            3000,
-            null
-          );
-        }
-      } catch (err: any) {
-        this.logger.warn('Aviso ao atualizar status no Supabase: ' + err?.message);
-      }
-    })();
-
     return {
       ...aluno,
       turmas: turma,
@@ -506,39 +562,169 @@ export class DatabaseService implements OnModuleInit {
 
     this.memoryDb.frequencias = this.memoryDb.frequencias.filter((f) => f.aluno_id !== id);
     this.persistToDiskAsync();
-
-    (async () => {
-      try {
-        const client = this.supabaseService.getClient();
-        await withTimeout<any>(
-          client.from('frequencias').delete().eq('aluno_id', id),
-          3000,
-          null
-        );
-        await withTimeout<any>(
-          client.from('alunos').delete().eq('id', id),
-          3000,
-          null
-        );
-        if (removido.status === 'Ativo' && removido.turma_id) {
-          const turma = this.memoryDb.turmas.find((t) => t.id === removido.turma_id);
-          if (turma) {
-            await withTimeout<any>(
-              client.from('turmas').update({ capacidade: turma.capacidade }).eq('id', turma.id),
-              3000,
-              null
-            );
-          }
-        }
-      } catch (err: any) {
-        this.logger.warn('Aviso ao excluir aluno no Supabase: ' + err?.message);
-      }
-    })();
-
     return { success: true, message: 'Aluno removido com sucesso do banco de dados.' };
   }
 
-  // --- FREQUÊNCIAS & CHAMADA (RESPOSTA INSTANTÂNEA < 1ms DA RAM) ---
+  // --- TURMA COM ALUNOS E ESTATÍSTICAS DE FREQUÊNCIA ---
+  async getAlunosPorTurma(turmaId: string) {
+    this.syncWithSupabaseInBackground();
+
+    const turma = this.memoryDb.turmas.find((t) => t.id === turmaId);
+    const alunosDaTurma = this.memoryDb.alunos.filter((a) => a.turma_id === turmaId);
+
+    const alunosComStats = alunosDaTurma.map((aluno) => {
+      const freqs = this.memoryDb.frequencias
+        .filter((f) => f.aluno_id === aluno.id)
+        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+      const totalAulas = freqs.length;
+      const presencas = freqs.filter((f) => f.presente).length;
+      const justificadas = freqs.filter(
+        (f) => !f.presente && f.justificativa && f.justificativa.includes('JUSTIFICADA')
+      ).length;
+      const faltas = freqs.filter(
+        (f) => !f.presente && (!f.justificativa || !f.justificativa.includes('JUSTIFICADA'))
+      ).length;
+
+      let faltasConsecutivas = 0;
+      for (const f of freqs) {
+        if (!f.presente && (!f.justificativa || !f.justificativa.includes('JUSTIFICADA'))) {
+          faltasConsecutivas++;
+        } else {
+          break;
+        }
+      }
+
+      const frequenciaPercentual = totalAulas > 0
+        ? Math.round(((presencas + justificadas) / totalAulas) * 100)
+        : 100;
+
+      const ultimaFalta = freqs.find((f) => !f.presente)?.data;
+
+      return {
+        ...aluno,
+        turmas: turma,
+        stats: {
+          totalAulas,
+          presencas,
+          faltas,
+          justificadas,
+          frequenciaPercentual,
+          faltasConsecutivas,
+          ultimaFalta,
+        },
+      };
+    });
+
+    return {
+      turma,
+      alunos: alunosComStats,
+      totalAlunos: alunosDaTurma.length,
+      ativos: alunosDaTurma.filter((a) => a.status === 'Ativo').length,
+      fila: alunosDaTurma.filter((a) => a.status === 'Fila').length,
+    };
+  }
+
+  // --- HISTÓRICO INDIVIDUAL DE FALTAS E CHAMADA DO ALUNO ---
+  async getAlunoHistorico(alunoId: string) {
+    this.syncWithSupabaseInBackground();
+
+    const aluno = this.memoryDb.alunos.find((a) => a.id === alunoId);
+    if (!aluno) return null;
+
+    const turma = this.memoryDb.turmas.find((t) => t.id === aluno.turma_id);
+
+    const freqs = this.memoryDb.frequencias
+      .filter((f) => f.aluno_id === alunoId)
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+    const historico = freqs.map((f) => {
+      let status: 'PRESENTE' | 'FALTA' | 'JUSTIFICADA' = 'PRESENTE';
+      let observacao = f.justificativa || '';
+
+      if (f.presente) {
+        status = 'PRESENTE';
+      } else if (f.justificativa && f.justificativa.includes('JUSTIFICADA')) {
+        status = 'JUSTIFICADA';
+        observacao = f.justificativa.replace('[JUSTIFICADA]', '').trim();
+      } else {
+        status = 'FALTA';
+      }
+
+      return {
+        id: f.id,
+        data: f.data,
+        presente: f.presente,
+        status,
+        observacao,
+        created_at: f.created_at,
+      };
+    });
+
+    const totalAulas = historico.length;
+    const presencas = historico.filter((h) => h.status === 'PRESENTE').length;
+    const justificadas = historico.filter((h) => h.status === 'JUSTIFICADA').length;
+    const faltas = historico.filter((h) => h.status === 'FALTA').length;
+    const frequenciaPercentual = totalAulas > 0
+      ? Math.round(((presencas + justificadas) / totalAulas) * 100)
+      : 100;
+
+    let faltasConsecutivas = 0;
+    for (const h of historico) {
+      if (h.status === 'FALTA') {
+        faltasConsecutivas++;
+      } else {
+        break;
+      }
+    }
+
+    const ultimaFalta = historico.find((h) => h.status === 'FALTA')?.data;
+
+    return {
+      aluno: {
+        ...aluno,
+        turmas: turma,
+      },
+      stats: {
+        totalAulas,
+        presencas,
+        faltas,
+        justificadas,
+        frequenciaPercentual,
+        faltasConsecutivas,
+        ultimaFalta,
+      },
+      historico,
+    };
+  }
+
+  // --- JUSTIFICAR FALTA INDIVIDUAL ---
+  async justificarFalta(alunoId: string, dataStr: string, observacao: string) {
+    const idx = this.memoryDb.frequencias.findIndex(
+      (f) => f.aluno_id === alunoId && f.data === dataStr
+    );
+
+    const textoJust = observacao ? `[JUSTIFICADA] ${observacao}` : '[JUSTIFICADA]';
+
+    if (idx !== -1) {
+      this.memoryDb.frequencias[idx].presente = false;
+      this.memoryDb.frequencias[idx].justificativa = textoJust;
+    } else {
+      this.memoryDb.frequencias.push({
+        id: randomUUID(),
+        aluno_id: alunoId,
+        data: dataStr,
+        presente: false,
+        justificativa: textoJust,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    this.persistToDiskAsync();
+    return { success: true, message: 'Falta justificada com sucesso.' };
+  }
+
+  // --- FREQUÊNCIAS & CHAMADA DIÁRIA ---
   async getFrequencias(turma_id: string, dataStr: string) {
     this.syncWithSupabaseInBackground();
 
@@ -586,8 +772,6 @@ export class DatabaseService implements OnModuleInit {
     dataStr: string,
     registros: { aluno_id: string; status: string; observacao?: string }[]
   ) {
-    const payloadParaSupabase: any[] = [];
-
     for (const r of registros) {
       const isPresente = r.status === 'PRESENTE';
       const just = r.status === 'JUSTIFICADA'
@@ -612,34 +796,13 @@ export class DatabaseService implements OnModuleInit {
         };
         this.memoryDb.frequencias.push(novaFreq);
       }
-
-      payloadParaSupabase.push({
-        aluno_id: r.aluno_id,
-        data: dataStr,
-        presente: isPresente,
-        justificativa: just || null,
-      });
     }
 
     this.persistToDiskAsync();
-
-    (async () => {
-      try {
-        const client = this.supabaseService.getClient();
-        await withTimeout<any>(
-          client.from('frequencias').upsert(payloadParaSupabase, { onConflict: 'aluno_id,data' }),
-          3000,
-          null
-        );
-      } catch (err: any) {
-        this.logger.warn('Aviso ao sincronizar frequências no Supabase: ' + err?.message);
-      }
-    })();
-
     return { success: true };
   }
 
-  // --- ABSENTEÍSMO / ALERTAS (PROCESSAMENTO DIRETO EM MEMÓRIA < 1ms) ---
+  // --- ABSENTEÍSMO / ALERTAS ---
   async getAlertasFaltas() {
     this.syncWithSupabaseInBackground();
 
@@ -681,7 +844,7 @@ export class DatabaseService implements OnModuleInit {
     return alertas;
   }
 
-  // --- CONSULTA DO RESPONSÁVEL EM MEMÓRIA (< 1ms) ---
+  // --- CONSULTA DO RESPONSÁVEL ---
   async getMinhasFaltasPorEmail(email: string) {
     if (!email) return { alunos: [] };
     const cleanEmail = email.trim().toLowerCase();
@@ -753,7 +916,107 @@ export class DatabaseService implements OnModuleInit {
     return { alunos: resultadoAlunos };
   }
 
-  // --- MURAL DE OBRAS & PRODUÇÕES ARTÍSTICAS (EXCLUSIVO PARA OBRAS E FOTOS) ---
+  // --- GESTÃO DE ADMINISTRADORES (OFFLINE E ONLINE) ---
+  async getAdmins(): Promise<AdminUser[]> {
+    if (!this.memoryDb.admins || this.memoryDb.admins.length === 0) {
+      this.memoryDb.admins = this.getDefaultAdmins();
+      this.persistToDiskAsync();
+    }
+    return this.memoryDb.admins;
+  }
+
+  async createAdmin(dto: { email: string; password?: string; nome?: string }): Promise<AdminUser> {
+    const novo: AdminUser = {
+      id: randomUUID(),
+      email: dto.email.trim().toLowerCase(),
+      nome: dto.nome?.trim() || 'Administrador',
+      role: 'admin',
+      created_at: new Date().toISOString(),
+    };
+
+    if (!this.memoryDb.admins) this.memoryDb.admins = this.getDefaultAdmins();
+    this.memoryDb.admins.unshift(novo);
+    this.persistToDiskAsync();
+    return novo;
+  }
+
+  async removeAdmin(id: string): Promise<boolean> {
+    if (!this.memoryDb.admins) return false;
+    const idx = this.memoryDb.admins.findIndex((a) => a.id === id);
+    if (idx === -1) return false;
+    this.memoryDb.admins.splice(idx, 1);
+    this.persistToDiskAsync();
+    return true;
+  }
+
+  // --- RELATÓRIOS E INDICADORES (COMPLETAMENTE EM MEMÓRIA < 1ms) ---
+  async getResumoRelatorios() {
+    const alunosAtivos = this.memoryDb.alunos.filter((a) => a.status === 'Ativo');
+    const alunosFila = this.memoryDb.alunos.filter((a) => a.status === 'Fila');
+    const alunosInativos = this.memoryDb.alunos.filter((a) => a.status === 'Inativo');
+
+    const mapTurmas = new Map<string, Turma>();
+    for (const t of this.memoryDb.turmas) {
+      mapTurmas.set(t.id, t);
+    }
+
+    const turmasStats = this.memoryDb.turmas.map((turma) => {
+      const alunosTurma = alunosAtivos.filter((a) => a.turma_id === turma.id);
+      const alunoIds = new Set(alunosTurma.map((a) => a.id));
+
+      const freqsTurma = this.memoryDb.frequencias.filter((f) => alunoIds.has(f.aluno_id));
+      const totalRegistros = freqsTurma.length;
+      const presencas = freqsTurma.filter((f) => f.presente).length;
+      const justificadas = freqsTurma.filter(
+        (f) => !f.presente && f.justificativa && f.justificativa.includes('JUSTIFICADA')
+      ).length;
+      const faltas = freqsTurma.filter(
+        (f) => !f.presente && (!f.justificativa || !f.justificativa.includes('JUSTIFICADA'))
+      ).length;
+
+      const frequenciaPercentual = totalRegistros > 0
+        ? Math.round(((presencas + justificadas) / totalRegistros) * 100)
+        : 100;
+
+      return {
+        turma_id: turma.id,
+        nome: turma.nome,
+        turno: turma.turno,
+        capacidade: turma.capacidade,
+        totalAlunos: alunosTurma.length,
+        totalRegistros,
+        presencas,
+        faltas,
+        justificadas,
+        frequenciaPercentual,
+      };
+    });
+
+    const totalRegistros = turmasStats.reduce((soma, t) => soma + t.totalRegistros, 0);
+    const totalPresencas = turmasStats.reduce((soma, t) => soma + t.presencas, 0);
+    const totalFaltas = turmasStats.reduce((soma, t) => soma + t.faltas, 0);
+    const totalJustificadas = turmasStats.reduce((soma, t) => soma + t.justificadas, 0);
+
+    return {
+      geradoEm: new Date().toISOString(),
+      totais: {
+        alunosAtivos: alunosAtivos.length,
+        alunosFila: alunosFila.length,
+        alunosInativos: alunosInativos.length,
+        turmas: turmasStats.length,
+        totalRegistros,
+        presencas: totalPresencas,
+        faltas: totalFaltas,
+        justificadas: totalJustificadas,
+        frequenciaPercentual: totalRegistros > 0
+          ? Math.round(((totalPresencas + totalJustificadas) / totalRegistros) * 100)
+          : 100,
+      },
+      turmas: turmasStats,
+    };
+  }
+
+  // --- MURAL DE OBRAS & PRODUÇÕES ARTÍSTICAS ---
   async getMural(turmaId?: string): Promise<MuralItem[]> {
     if (!this.memoryDb.mural || this.memoryDb.mural.length === 0) {
       this.memoryDb.mural = this.getDefaultMural();

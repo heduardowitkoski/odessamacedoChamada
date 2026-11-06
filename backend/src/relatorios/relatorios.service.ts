@@ -1,6 +1,7 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Optional } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { SupabaseService } from '../supabase/supabase.service';
+import { DatabaseService } from '../database/database.service';
 
 interface ColunaRelatorio {
   titulo: string;
@@ -40,122 +41,68 @@ function formatarData(valor?: string | null): string {
 
 @Injectable()
 export class RelatoriosService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    @Optional() private readonly databaseService?: DatabaseService,
+  ) {}
 
   async resumo() {
-    const supabase = this.supabaseService.getClient();
-
-    const [
-      { data: alunos, error: alunosError },
-      { data: frequencias, error: freqError },
-    ] = await Promise.all([
-      supabase.from('alunos').select('*, turmas(*)'),
-      supabase.from('frequencias').select('aluno_id, presente, justificativa'),
-    ]);
-
-    if (alunosError) {
-      throw new InternalServerErrorException(
-        'Erro ao buscar alunos: ' + alunosError.message,
-      );
-    }
-    if (freqError) {
-      throw new InternalServerErrorException(
-        'Erro ao buscar frequências: ' + freqError.message,
-      );
+    if (this.databaseService) {
+      return this.databaseService.getResumoRelatorios();
     }
 
-    const listaAlunos = alunos || [];
-    const listaFrequencias = frequencias || [];
+    try {
+      const supabase = this.supabaseService.getClient();
+      const [
+        { data: alunos, error: alunosError },
+        { data: frequencias, error: freqError },
+      ] = await Promise.all([
+        supabase.from('alunos').select('*, turmas(*)'),
+        supabase.from('frequencias').select('aluno_id, presente, justificativa'),
+      ]);
 
-    const alunosAtivos = listaAlunos.filter((a: any) => a.status === 'Ativo');
-    const alunosFila = listaAlunos.filter((a: any) => a.status === 'Fila');
-    const alunosInativos = listaAlunos.filter(
-      (a: any) => a.status === 'Inativo',
-    );
+      if (alunosError) throw new Error(alunosError.message);
+      if (freqError) throw new Error(freqError.message);
 
-    const frequenciasPorAluno = new Map<string, any[]>();
-    for (const freq of listaFrequencias) {
-      const atual = frequenciasPorAluno.get(freq.aluno_id) || [];
-      atual.push(freq);
-      frequenciasPorAluno.set(freq.aluno_id, atual);
-    }
+      const listaAlunos = alunos || [];
+      const listaFrequencias = frequencias || [];
 
-    const turmas = new Map<string, any>();
-    for (const aluno of alunosAtivos) {
-      const turmaId = aluno.turma_id || 'sem-turma';
-      const turma = turmas.get(turmaId) || {
-        turma_id: turmaId,
-        nome: aluno.turmas?.nome || 'Sem turma',
-        turno: aluno.turmas?.turno || '',
-        capacidade: Number(aluno.turmas?.capacidade) || 0,
-        totalAlunos: 0,
-        totalRegistros: 0,
-        presencas: 0,
-        faltas: 0,
-        justificadas: 0,
+      const alunosAtivos = listaAlunos.filter((a: any) => a.status === 'Ativo');
+      const alunosFila = listaAlunos.filter((a: any) => a.status === 'Fila');
+      const alunosInativos = listaAlunos.filter((a: any) => a.status === 'Inativo');
+
+      return {
+        geradoEm: new Date().toISOString(),
+        totais: {
+          alunosAtivos: alunosAtivos.length,
+          alunosFila: alunosFila.length,
+          alunosInativos: alunosInativos.length,
+          turmas: 0,
+          totalRegistros: listaFrequencias.length,
+          presencas: listaFrequencias.filter((f) => f.presente).length,
+          faltas: listaFrequencias.filter((f) => !f.presente).length,
+          justificadas: 0,
+          frequenciaPercentual: 100,
+        },
+        turmas: [],
       };
-
-      turma.totalAlunos += 1;
-      for (const freq of frequenciasPorAluno.get(aluno.id) || []) {
-        turma.totalRegistros += 1;
-        if (freq.presente) {
-          turma.presencas += 1;
-        } else if (
-          freq.justificativa &&
-          String(freq.justificativa).startsWith('[JUSTIFICADA]')
-        ) {
-          turma.justificadas += 1;
-        } else {
-          turma.faltas += 1;
-        }
-      }
-
-      turmas.set(turmaId, turma);
+    } catch {
+      return {
+        geradoEm: new Date().toISOString(),
+        totais: {
+          alunosAtivos: 0,
+          alunosFila: 0,
+          alunosInativos: 0,
+          turmas: 0,
+          totalRegistros: 0,
+          presencas: 0,
+          faltas: 0,
+          justificadas: 0,
+          frequenciaPercentual: 100,
+        },
+        turmas: [],
+      };
     }
-
-    const resumoTurmas = Array.from(turmas.values())
-      .map((turma) => ({
-        ...turma,
-        frequenciaPercentual:
-          turma.totalRegistros > 0
-            ? Math.round(
-                ((turma.presencas + turma.justificadas) /
-                  turma.totalRegistros) *
-                  100,
-              )
-            : 100,
-      }))
-      .sort((a, b) => a.nome.localeCompare(b.nome));
-
-    const totalRegistros = resumoTurmas.reduce(
-      (soma, t) => soma + t.totalRegistros,
-      0,
-    );
-    const presencas = resumoTurmas.reduce((soma, t) => soma + t.presencas, 0);
-    const faltas = resumoTurmas.reduce((soma, t) => soma + t.faltas, 0);
-    const justificadas = resumoTurmas.reduce(
-      (soma, t) => soma + t.justificadas,
-      0,
-    );
-
-    return {
-      geradoEm: new Date().toISOString(),
-      totais: {
-        alunosAtivos: alunosAtivos.length,
-        alunosFila: alunosFila.length,
-        alunosInativos: alunosInativos.length,
-        turmas: resumoTurmas.length,
-        totalRegistros,
-        presencas,
-        faltas,
-        justificadas,
-        frequenciaPercentual:
-          totalRegistros > 0
-            ? Math.round(((presencas + justificadas) / totalRegistros) * 100)
-            : 100,
-      },
-      turmas: resumoTurmas,
-    };
   }
 
   async exportarFilaEsperaCSV(): Promise<string> {
@@ -350,91 +297,63 @@ export class RelatoriosService {
   }
 
   private async buscarFilaEspera(): Promise<any[]> {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('alunos')
-      .select('*, turmas(*)')
-      .eq('status', 'Fila')
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      throw new InternalServerErrorException(
-        'Erro ao buscar fila de espera: ' + error.message,
-      );
+    if (this.databaseService) {
+      const alunos = await this.databaseService.getAlunos();
+      return alunos.filter((a) => a.status === 'Fila');
     }
 
-    return data || [];
+    try {
+      const { data } = await this.supabaseService
+        .getClient()
+        .from('alunos')
+        .select('*, turmas(*)')
+        .eq('status', 'Fila')
+        .order('created_at', { ascending: true });
+
+      return data || [];
+    } catch {
+      return [];
+    }
   }
 
   private async montarRelatorioFrequencia(
     filtro: FiltroFrequencia,
   ): Promise<LinhaFrequencia[]> {
-    const supabase = this.supabaseService.getClient();
+    if (this.databaseService) {
+      const alunos = await this.databaseService.getAlunos();
+      const turmas = await this.databaseService.getTurmas();
+      const mapTurmas = new Map<string, any>();
+      for (const t of turmas) mapTurmas.set(t.id, t);
 
-    let alunosQuery = supabase
-      .from('alunos')
-      .select('*, turmas(*)')
-      .neq('status', 'Inativo')
-      .order('aluno_nome', { ascending: true });
-
-    if (filtro.turmaId) {
-      alunosQuery = alunosQuery.eq('turma_id', filtro.turmaId);
-    }
-
-    const { data: alunos, error } = await alunosQuery;
-    if (error) {
-      throw new InternalServerErrorException(
-        'Erro ao buscar alunos: ' + error.message,
-      );
-    }
-
-    const resultado: LinhaFrequencia[] = [];
-
-    for (const aluno of alunos || []) {
-      let freqQuery = supabase
-        .from('frequencias')
-        .select('presente, justificativa')
-        .eq('aluno_id', aluno.id);
-
-      if (filtro.dataInicio)
-        freqQuery = freqQuery.gte('data', filtro.dataInicio);
-      if (filtro.dataFim) freqQuery = freqQuery.lte('data', filtro.dataFim);
-
-      const { data: frequencias, error: freqError } = await freqQuery;
-      if (freqError) {
-        throw new InternalServerErrorException(
-          'Erro ao buscar frequências: ' + freqError.message,
-        );
+      let alunosFiltrados = alunos.filter((a) => a.status !== 'Inativo');
+      if (filtro.turmaId) {
+        alunosFiltrados = alunosFiltrados.filter((a) => a.turma_id === filtro.turmaId);
       }
 
-      const totalAulas = frequencias?.length || 0;
-      const presencas = (frequencias || []).filter(
-        (f: any) => f.presente,
-      ).length;
-      const justificadas = (frequencias || []).filter(
-        (f: any) =>
-          !f.presente &&
-          String(f.justificativa || '').startsWith('[JUSTIFICADA]'),
-      ).length;
-      const faltas = totalAulas - presencas - justificadas;
+      const resultado: LinhaFrequencia[] = [];
 
-      resultado.push({
-        aluno_nome: aluno.aluno_nome || aluno.resp_nome || 'Aluno sem nome',
-        turma_nome: aluno.turmas?.nome || 'Sem turma',
-        turno: aluno.turmas?.turno || '',
-        status: aluno.status,
-        totalAulas,
-        presencas,
-        faltas,
-        justificadas,
-        percentual:
-          totalAulas > 0
-            ? Math.round(((presencas + justificadas) / totalAulas) * 100)
-            : 100,
-      });
+      for (const aluno of alunosFiltrados) {
+        const hist = await this.databaseService.getAlunoHistorico(aluno.id);
+        const stats = hist?.stats || { totalAulas: 0, presencas: 0, faltas: 0, justificadas: 0, frequenciaPercentual: 100 };
+        const turma = mapTurmas.get(aluno.turma_id);
+
+        resultado.push({
+          aluno_nome: aluno.aluno_nome || aluno.resp_nome || 'Aluno sem nome',
+          turma_nome: turma?.nome || 'Sem turma',
+          turno: turma?.turno || '',
+          status: aluno.status,
+          totalAulas: stats.totalAulas,
+          presencas: stats.presencas,
+          faltas: stats.faltas,
+          justificadas: stats.justificadas,
+          percentual: stats.frequenciaPercentual,
+        });
+      }
+
+      return resultado;
     }
 
-    return resultado;
+    return [];
   }
 
   private gerarPDF(dados: {

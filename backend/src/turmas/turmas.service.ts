@@ -30,12 +30,10 @@ export class TurmasService {
   ) {}
 
   async findAll() {
-    // 1. Resposta Instantânea da RAM via DatabaseService (< 1ms)
     if (this.databaseService) {
       return this.databaseService.getTurmas();
     }
 
-    // Fallback direto ao Supabase (ex: testes isolados sem DatabaseModule)
     const { data, error } = await this.supabaseService
       .getClient()
       .from('turmas')
@@ -63,12 +61,10 @@ export class TurmasService {
     idade_minima?: number;
     idade_maxima?: number;
   }) {
-    // 1. Resposta Instantânea via DatabaseService (< 1ms)
     if (this.databaseService) {
       return this.databaseService.createTurma(createTurmaDto);
     }
 
-    // Fallback direto ao Supabase
     const fallback = extractAgeRange(createTurmaDto.nome || '');
     const payload = {
       ...createTurmaDto,
@@ -104,6 +100,14 @@ export class TurmasService {
     id: string,
     dto: { nome?: string; turno?: string; capacidade?: number; idade_minima?: number; idade_maxima?: number },
   ) {
+    if (this.databaseService) {
+      const atualizada = await this.databaseService.updateTurma(id, dto);
+      if (!atualizada) {
+        throw new BadRequestException('Turma não encontrada para atualização.');
+      }
+      return atualizada;
+    }
+
     const { data, error } = await this.supabaseService
       .getClient()
       .from('turmas')
@@ -119,9 +123,16 @@ export class TurmasService {
   }
 
   async remove(id: string) {
+    if (this.databaseService) {
+      const res = await this.databaseService.removeTurma(id);
+      if (!res.success) {
+        throw new BadRequestException(res.message);
+      }
+      return res;
+    }
+
     const supabase = this.supabaseService.getClient();
 
-    // Verifica se há alunos ativos nessa turma antes de excluir
     const { data: alunos } = await supabase
       .from('alunos')
       .select('id')

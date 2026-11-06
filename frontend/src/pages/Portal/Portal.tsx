@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award, X, Loader2, Sparkles, ArrowRight } from "lucide-react";
+import { getApiBase } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 
 // Interface baseada no banco de dados e UI
@@ -43,9 +44,7 @@ export default function PortalScreen() {
   const filters = ["Todas", "Com vagas", "Turma cheia"];
 
   useEffect(() => {
-    const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-      ? 'http://localhost:3000'
-      : (import.meta as any).env?.VITE_API_URL || 'https://odessamacedochamada.onrender.com';
+    const apiBase = getApiBase();
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2500);
@@ -184,7 +183,6 @@ export default function PortalScreen() {
               </Link>
             </div>
           </div>
-
         </div>
       </section>
 
@@ -279,17 +277,17 @@ export default function PortalScreen() {
 
                         <div className="mt-4 flex gap-2">
                           {isFull ? (
-                            <Link to="/inscrever" className="flex-1 h-9 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-1.5">
+                            <Link to={`/inscrever?turma_id=${turma.id}`} className="flex-1 h-9 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-1.5">
                               <ListOrdered size={14} /> Entrar na fila
                             </Link>
                           ) : (
-                            <Link to="/inscrever" className={`flex-1 h-9 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 ${c.btnOpen}`}>
+                            <Link to={`/inscrever?turma_id=${turma.id}`} className={`flex-1 h-9 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 ${c.btnOpen}`}>
                               <Plus size={14} /> Inscrever-se
                             </Link>
                           )}
-                          <button className="h-9 w-9 border border-gray-200 text-gray-400 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center">
+                          <Link to={`/inscrever?turma_id=${turma.id}`} className="h-9 w-9 border border-gray-200 text-gray-400 rounded-xl hover:bg-gray-50 hover:text-amber-600 transition-colors flex items-center justify-center" title="Inscrever-se nesta turma">
                             <ChevronRight size={15} />
-                          </button>
+                          </Link>
                         </div>
                       </div>
                     </div>

@@ -8,3 +8,5 @@ build/
 
 # Cache local do DatabaseService
 backend/data/
+ODESSA_fazer_merge/
+ODE_para_fazer_merge/

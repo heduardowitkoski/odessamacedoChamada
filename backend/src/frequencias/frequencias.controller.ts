@@ -15,6 +15,25 @@ export class FrequenciasController {
     return this.frequenciasService.buscarPorTurmaEData(turmaId, dataStr);
   }
 
+  @Get('turma/:turmaId/alunos-resumo')
+  async getAlunosPorTurmaComStats(@Param('turmaId') turmaId: string) {
+    return this.frequenciasService.buscarAlunosPorTurmaComStats(turmaId);
+  }
+
+  @Get('aluno/:alunoId')
+  async getHistoricoAluno(@Param('alunoId') alunoId: string) {
+    return this.frequenciasService.buscarHistoricoAluno(alunoId);
+  }
+
+  @Post('justificar')
+  async justificarFalta(
+    @Body('aluno_id') alunoId: string,
+    @Body('data') dataStr: string,
+    @Body('observacao') observacao: string,
+  ) {
+    return this.frequenciasService.justificarFalta(alunoId, dataStr, observacao);
+  }
+
   @Post('batch')
   async salvarLote(
     @Body('turma_id') turmaId: string,

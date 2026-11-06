@@ -5,8 +5,9 @@ import {
 import {
   AlertTriangle, BarChart2, Clock, Download, FileSpreadsheet, FileText, Loader2, RefreshCw, Users,
 } from "lucide-react";
+import { getApiBase } from "../../lib/api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://odessamacedochamada.onrender.com";
+const API_BASE = getApiBase();
 
 interface ResumoTurma {
   turma_id: string;

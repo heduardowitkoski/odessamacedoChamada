@@ -9,13 +9,16 @@ import {
   Check,
   Phone,
   Save,
-  Loader2
+  Loader2,
+  FileText
 } from 'lucide-react';
 import MuralBoard from '../../components/mural/MuralBoard';
 import { getCurrentUser, clearUserSession } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
+import { getApiBase } from '../../lib/api';
+import StudentHistoryModal from '../../components/ui/StudentHistoryModal';
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = getApiBase();
 
 interface AlunoChamada {
   aluno_id: string;
@@ -35,6 +38,7 @@ export default function ProfessorPortal() {
   const [loading, setLoading] = useState(false);
   const [savingFreq, setSavingFreq] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const currentUser = getCurrentUser();
   const navigate = useNavigate();
@@ -201,7 +205,7 @@ export default function ProfessorPortal() {
 
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
               title="Encerrar Sessão"
             >
               <LogOut size={18} />
@@ -215,7 +219,7 @@ export default function ProfessorPortal() {
         <div className="max-w-7xl mx-auto px-6 flex items-center gap-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab('frequencia')}
-            className={`py-3.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
+            className={`py-3.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'frequencia'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-900'
@@ -227,7 +231,7 @@ export default function ProfessorPortal() {
 
           <button
             onClick={() => setActiveTab('mural')}
-            className={`py-3.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
+            className={`py-3.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'mural'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-900'
@@ -239,7 +243,7 @@ export default function ProfessorPortal() {
 
           <button
             onClick={() => setActiveTab('alunos')}
-            className={`py-3.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
+            className={`py-3.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'alunos'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-900'
@@ -297,7 +301,7 @@ export default function ProfessorPortal() {
                   <div className="self-end">
                     <button
                       onClick={handleMarcarTodosPresentes}
-                      className="px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                      className="px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                       <Check size={14} /> Todos Presentes
                     </button>
@@ -326,7 +330,7 @@ export default function ProfessorPortal() {
                 <button
                   onClick={handleSalvarChamada}
                   disabled={savingFreq}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   {savingFreq ? (
                     <>
@@ -346,12 +350,18 @@ export default function ProfessorPortal() {
                 <div className="divide-y divide-gray-100">
                   {alunosLista.map((aluno, idx) => (
                     <div key={aluno.aluno_id || idx} className="p-4 hover:bg-gray-50/70 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                      <div
+                        onClick={() => setSelectedStudentId(aluno.aluno_id)}
+                        className="flex items-center gap-3 cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs group-hover:bg-blue-200 transition-colors">
                           {aluno.aluno_nome?.charAt(0) || 'A'}
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-gray-900">{aluno.aluno_nome}</p>
+                          <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                            {aluno.aluno_nome}
+                            <span className="text-[10px] text-blue-500 font-normal underline">ver faltas</span>
+                          </p>
                           <p className="text-[11px] text-gray-500">
                             Resp: {aluno.resp_nome} · Tel: {aluno.resp_telefone}
                           </p>
@@ -364,7 +374,7 @@ export default function ProfessorPortal() {
                           <button
                             type="button"
                             onClick={() => handleStatusChange(aluno.aluno_id, 'PRESENTE')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                               aluno.status === 'PRESENTE'
                                 ? 'bg-emerald-500 text-white shadow-xs'
                                 : 'text-gray-600 hover:text-gray-900'
@@ -376,7 +386,7 @@ export default function ProfessorPortal() {
                           <button
                             type="button"
                             onClick={() => handleStatusChange(aluno.aluno_id, 'FALTA')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                               aluno.status === 'FALTA'
                                 ? 'bg-red-500 text-white shadow-xs'
                                 : 'text-gray-600 hover:text-gray-900'
@@ -388,7 +398,7 @@ export default function ProfessorPortal() {
                           <button
                             type="button"
                             onClick={() => handleStatusChange(aluno.aluno_id, 'JUSTIFICADA')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                               aluno.status === 'JUSTIFICADA'
                                 ? 'bg-amber-500 text-white shadow-xs'
                                 : 'text-gray-600 hover:text-gray-900'
@@ -406,6 +416,16 @@ export default function ProfessorPortal() {
                           onChange={(e) => handleObsChange(aluno.aluno_id, e.target.value)}
                           className="h-9 px-3 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-300 w-full sm:w-56"
                         />
+
+                        {/* Botão para abrir histórico de faltas */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStudentId(aluno.aluno_id)}
+                          className="p-2 text-gray-400 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+                          title="Ver todas as faltas e histórico do aluno"
+                        >
+                          <FileText size={16} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -430,41 +450,61 @@ export default function ProfessorPortal() {
                 Relação de Alunos Matriculados
               </h2>
               <p className="text-gray-500 text-xs mt-0.5">
-                Consulte os dados dos estudantes e contatos diretos dos responsáveis para recados pedagógicos
+                Consulte os dados dos estudantes, contatos dos responsáveis e histórico individual de faltas
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {alunosLista.map((aluno, i) => (
-                <div key={i} className="p-4 rounded-2xl border border-gray-100 bg-[#FAFAF7] hover:bg-white hover:border-blue-200 transition-all">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
-                      {aluno.aluno_nome?.charAt(0) || 'A'}
+                <div key={i} className="p-4 rounded-2xl border border-gray-100 bg-[#FAFAF7] hover:bg-white hover:border-blue-200 transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                        {aluno.aluno_nome?.charAt(0) || 'A'}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-900">{aluno.aluno_nome}</h4>
+                        <p className="text-[11px] text-gray-500">{turmaAtual?.nome || 'Turma Ativa'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-900">{aluno.aluno_nome}</h4>
-                      <p className="text-[11px] text-gray-500">{turmaAtual?.nome || 'Turma Ativa'}</p>
+
+                    <div className="text-xs space-y-1.5 pt-2 border-t border-gray-200/60">
+                      <div className="flex items-center justify-between text-gray-600">
+                        <span className="text-gray-400">Responsável:</span>
+                        <span className="font-medium text-gray-800">{aluno.resp_nome}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-gray-600">
+                        <span className="text-gray-400">Telefone:</span>
+                        <a href={`https://wa.me/55${aluno.resp_telefone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="font-medium text-blue-600 hover:underline flex items-center gap-1">
+                          <Phone size={11} /> {aluno.resp_telefone}
+                        </a>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="text-xs space-y-1.5 pt-2 border-t border-gray-200/60">
-                    <div className="flex items-center justify-between text-gray-600">
-                      <span className="text-gray-400">Responsável:</span>
-                      <span className="font-medium text-gray-800">{aluno.resp_nome}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-gray-600">
-                      <span className="text-gray-400">Telefone:</span>
-                      <a href={`tel:${aluno.resp_telefone}`} className="font-medium text-blue-600 hover:underline flex items-center gap-1">
-                        <Phone size={11} /> {aluno.resp_telefone}
-                      </a>
-                    </div>
-                  </div>
+                  <button
+                    onClick={() => setSelectedStudentId(aluno.aluno_id)}
+                    className="w-full mt-4 py-2 px-3 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <FileText size={13} /> Ver Faltas & Histórico
+                  </button>
                 </div>
               ))}
             </div>
           </div>
         )}
       </main>
+
+      {/* Modal de Histórico Individual de Faltas */}
+      {selectedStudentId && (
+        <StudentHistoryModal
+          alunoId={selectedStudentId}
+          onClose={() => setSelectedStudentId(null)}
+          onUpdate={() => {
+            if (selectedTurmaId) carregarChamada(selectedTurmaId, selectedData);
+          }}
+        />
+      )}
     </div>
   );
 }

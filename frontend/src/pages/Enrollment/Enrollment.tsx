@@ -1,5 +1,6 @@
 import { useState, useEffect, type ChangeEvent, type FocusEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { getApiBase } from "../../lib/api";
 import { CheckCircle, AlertCircle, Pencil, ArrowRight, Loader2, UserCheck } from "lucide-react";
 
 type FormStep = 0 | 1 | 2 | 3;
@@ -13,7 +14,7 @@ interface Turma {
   idade_maxima?: number;
 }
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || "https://odessamacedochamada.onrender.com";
+const API_BASE = getApiBase();
 
 // ==========================================
 // Extração e Validação de Faixa Etária
@@ -198,6 +199,8 @@ export default function EnrollmentScreen() {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedTurmaId = searchParams.get('turma_id') || "";
 
   // Estados do Formulário
   const [formData, setFormData] = useState({
@@ -216,8 +219,14 @@ export default function EnrollmentScreen() {
     resp_endereco: "",
     resp_cep: "",
     resp_bairro: "",
-    turma_id: ""
+    turma_id: preselectedTurmaId
   });
+
+  useEffect(() => {
+    if (preselectedTurmaId && !formData.turma_id) {
+      setFormData((prev) => ({ ...prev, turma_id: preselectedTurmaId }));
+    }
+  }, [preselectedTurmaId]);
 
   // Cálculo de idade em tempo real
   const { age: alunoAge } = parseDateBR(formData.aluno_nascimento);
