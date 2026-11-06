@@ -94,29 +94,72 @@ export class AlunosService {
 	};
 
     // 5. Salva de forma ultra-rápida no DatabaseService com sync assíncrono
+    let createdAluno: any;
     if (this.databaseService) {
-      return this.databaseService.createAluno(normalizedDto);
+      createdAluno = await this.databaseService.createAluno(normalizedDto);
     }
 
-    // Fallback direto ao Supabase
-    const status = 'Fila';
+    // 6. Persistência no Supabase: grava primariamente na tabela lista_espera
     const supabase = this.supabaseService.getClient();
-    
-    const { data, error } = await supabase
-      .from('alunos')
-      .insert([
-        {
-          ...normalizedDto,
-          status,
-        },
-      ])
-      .select();
+    try {
+      // Prepara objeto compatível com o schema novo e legado de lista_espera
+      const listaEsperaPayload: any = {
+        id: createdAluno?.id || crypto.randomUUID(),
+        turma_id: normalizedDto.turma_id,
+        resp_nome: normalizedDto.resp_nome,
+        nome_responsavel: normalizedDto.resp_nome,
+        resp_cpf: normalizedDto.resp_cpf,
+        resp_rg: normalizedDto.resp_rg,
+        resp_parentesco: normalizedDto.resp_parentesco,
+        resp_email: normalizedDto.resp_email,
+        email_responsavel: normalizedDto.resp_email,
+        resp_telefone: normalizedDto.resp_telefone,
+        telefone_responsavel: normalizedDto.resp_telefone,
+        resp_endereco: normalizedDto.resp_endereco,
+        resp_cep: normalizedDto.resp_cep,
+        resp_bairro: normalizedDto.resp_bairro,
+        aluno_nome: normalizedDto.aluno_nome,
+        nome_aluno: normalizedDto.aluno_nome,
+        aluno_nascimento: normalizedDto.aluno_nascimento,
+        data_nascimento: normalizedDto.aluno_nascimento,
+        aluno_sexo: normalizedDto.aluno_sexo,
+        aluno_cpf: normalizedDto.aluno_cpf,
+        aluno_escola: normalizedDto.aluno_escola,
+        aluno_experiencia: normalizedDto.aluno_experiencia,
+        aluno_necessidades: normalizedDto.aluno_necessidades,
+        status: 'aguardando',
+      };
 
-    if (error) {
-      throw new InternalServerErrorException(error.message);
+      const { error: leError } = await supabase
+        .from('lista_espera')
+        .insert([listaEsperaPayload]);
+
+      if (leError) {
+        this.logger.warn(`Tentativa com campos completos falhou em lista_espera: ${leError.message}. Tentando campos legados.`);
+        // Fallback para schema legado com menos colunas
+        await supabase.from('lista_espera').insert([
+          {
+            id: listaEsperaPayload.id,
+            nome_aluno: normalizedDto.aluno_nome,
+            nome_responsavel: normalizedDto.resp_nome,
+            telefone_responsavel: normalizedDto.resp_telefone,
+            data_nascimento: normalizedDto.aluno_nascimento,
+            status: 'aguardando',
+          },
+        ]);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Aviso ao persistir em lista_espera do Supabase: ${err?.message}`);
     }
 
-    return data;
+    if (createdAluno) {
+      return createdAluno;
+    }
+
+    return {
+      ...normalizedDto,
+      status: 'Fila',
+    };
   }
 
   async remove(id: string) {
@@ -245,6 +288,54 @@ export class AlunosService {
         } catch (err: any) {
           this.logger.error(`Falha ao processar e-mail de ativação: ${err?.message}`);
         }
+      }
+
+      // Persistência assíncrona no Supabase ao aprovar aluno
+      if (estavaNaFila && novoStatus === 'Ativo' && aluno) {
+        (async () => {
+          try {
+            const supabase = this.supabaseService.getClient();
+            // 1. Marca lista_espera como aprovado
+            await supabase.from('lista_espera').update({ status: 'aprovado' }).eq('id', id);
+
+            // 2. Insere na tabela alunos com status 'Ativo'
+            const alunoPayload: any = {
+              id: aluno.id,
+              turma_id: turma_id,
+              resp_nome: aluno.resp_nome,
+              resp_cpf: aluno.resp_cpf || '',
+              resp_rg: aluno.resp_rg || '',
+              resp_parentesco: aluno.resp_parentesco || '',
+              resp_email: aluno.resp_email || '',
+              resp_telefone: aluno.resp_telefone || '',
+              resp_endereco: aluno.resp_endereco || '',
+              resp_cep: aluno.resp_cep || '',
+              resp_bairro: aluno.resp_bairro || '',
+              aluno_nome: aluno.aluno_nome,
+              aluno_nascimento: aluno.aluno_nascimento,
+              aluno_sexo: aluno.aluno_sexo || '',
+              aluno_cpf: aluno.aluno_cpf || '',
+              aluno_escola: aluno.aluno_escola || '',
+              aluno_experiencia: aluno.aluno_experiencia || '',
+              aluno_necessidades: aluno.aluno_necessidades || '',
+              status: 'Ativo',
+            };
+
+            const { error: insError } = await supabase.from('alunos').upsert([alunoPayload]);
+            if (insError) {
+              // Se falhar com resp_parentesco por schema desatualizado, tenta sem ele
+              delete alunoPayload.resp_parentesco;
+              await supabase.from('alunos').upsert([alunoPayload]);
+            }
+
+            // 3. Atualiza capacidade da turma no Supabase
+            if (turma.capacidade > 0) {
+              await supabase.from('turmas').update({ capacidade: turma.capacidade }).eq('id', turma_id);
+            }
+          } catch (e: any) {
+            this.logger.warn(`Aviso ao sincronizar aprovação com Supabase: ${e?.message}`);
+          }
+        })();
       }
 
       return {

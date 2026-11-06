@@ -38,6 +38,30 @@ export interface Aluno {
   turmas?: Turma;
 }
 
+export interface ListaEspera {
+  id: string;
+  turma_id: string;
+  resp_nome: string;
+  resp_cpf?: string;
+  resp_rg?: string;
+  resp_parentesco?: string;
+  resp_email?: string;
+  resp_telefone: string;
+  resp_endereco?: string;
+  resp_cep?: string;
+  resp_bairro?: string;
+  aluno_nome: string;
+  aluno_nascimento: string;
+  aluno_sexo?: string;
+  aluno_cpf?: string;
+  aluno_escola?: string;
+  aluno_experiencia?: string;
+  aluno_necessidades?: string;
+  status: string; // 'aguardando' | 'aprovado' | 'recusado'
+  created_at: string;
+  turmas?: Turma;
+}
+
 export interface Frequencia {
   id: string;
   aluno_id: string;
@@ -301,7 +325,7 @@ export class DatabaseService implements OnModuleInit {
       try {
         const client = this.supabaseService.getClient();
 
-        const [turmasRes, alunosRes, freqRes] = await Promise.all([
+        const [turmasRes, alunosRes, freqRes, listaEsperaRes] = await Promise.all([
           withTimeout<any>(
             client.from('turmas').select('*').order('created_at', { ascending: false }),
             2000,
@@ -314,6 +338,11 @@ export class DatabaseService implements OnModuleInit {
           ),
           withTimeout<any>(
             client.from('frequencias').select('*').order('data', { ascending: false }).limit(2000),
+            2000,
+            { data: null, error: { message: 'Timeout' } }
+          ),
+          withTimeout<any>(
+            client.from('lista_espera').select('*').order('created_at', { ascending: false }),
             2000,
             { data: null, error: { message: 'Timeout' } }
           ),
@@ -346,6 +375,11 @@ export class DatabaseService implements OnModuleInit {
 
         if (freqRes?.data && Array.isArray(freqRes.data) && freqRes.data.length > 0) {
           this.memoryDb.frequencias = freqRes.data;
+          updated = true;
+        }
+
+        if (listaEsperaRes?.data && Array.isArray(listaEsperaRes.data)) {
+          this.memoryDb.lista_espera = listaEsperaRes.data;
           updated = true;
         }
 
@@ -507,6 +541,16 @@ export class DatabaseService implements OnModuleInit {
       created_at: new Date().toISOString(),
     };
 
+    if (status === 'Fila' || status === 'aguardando') {
+      // Adiciona também na lista de espera para consistência completa
+      const itemFila: ListaEspera = {
+        ...novo,
+        status: 'aguardando',
+      };
+      this.memoryDb.lista_espera = this.memoryDb.lista_espera.filter((item) => item.id !== novo.id);
+      this.memoryDb.lista_espera.unshift(itemFila);
+    }
+
     this.memoryDb.alunos.unshift(novo);
 
     this.persistToDiskAsync();
@@ -516,13 +560,101 @@ export class DatabaseService implements OnModuleInit {
     };
   }
 
+  // --- LISTA DE ESPERA (TABELA lista_espera) ---
+  async getListaEspera(): Promise<ListaEspera[]> {
+    this.syncWithSupabaseInBackground();
+    const mapTurmas = new Map<string, Turma>();
+    for (const t of this.memoryDb.turmas) {
+      mapTurmas.set(t.id, t);
+    }
+
+    return this.memoryDb.lista_espera.map((item) => ({
+      ...item,
+      turmas: mapTurmas.get(item.turma_id) || undefined,
+    }));
+  }
+
+  async createListaEspera(dto: any): Promise<ListaEspera> {
+    let selectedTurma = this.memoryDb.turmas.find((t) => t.id === dto.turma_id);
+    if (!selectedTurma && this.memoryDb.turmas.length > 0) {
+      selectedTurma = this.memoryDb.turmas[0];
+    }
+
+    const novoItem: ListaEspera = {
+      id: dto.id || randomUUID(),
+      turma_id: selectedTurma ? selectedTurma.id : dto.turma_id || randomUUID(),
+      resp_nome: dto.resp_nome || dto.nome_responsavel || 'Responsável',
+      resp_cpf: dto.resp_cpf || '',
+      resp_rg: dto.resp_rg || '',
+      resp_parentesco: dto.resp_parentesco || '',
+      resp_email: dto.resp_email || dto.email_responsavel || '',
+      resp_telefone: dto.resp_telefone || dto.telefone_responsavel || '(53) 99999-0000',
+      resp_endereco: dto.resp_endereco || '',
+      resp_cep: dto.resp_cep || '',
+      resp_bairro: dto.resp_bairro || '',
+      aluno_nome: dto.aluno_nome || dto.nome_aluno || 'Aluno',
+      aluno_nascimento: dto.aluno_nascimento || dto.data_nascimento || new Date().toISOString().split('T')[0],
+      aluno_sexo: dto.aluno_sexo || '',
+      aluno_cpf: dto.aluno_cpf || '',
+      aluno_escola: dto.aluno_escola || '',
+      aluno_experiencia: dto.aluno_experiencia || '',
+      aluno_necessidades: dto.aluno_necessidades || '',
+      status: 'aguardando',
+      created_at: new Date().toISOString(),
+    };
+
+    this.memoryDb.lista_espera.unshift(novoItem);
+
+    // Também espelha como aluno em 'Fila' para compatibilidade total imediata com os painéis
+    const espelhoAluno: Aluno = {
+      ...novoItem,
+      status: 'Fila',
+    };
+    const existIdx = this.memoryDb.alunos.findIndex((a) => a.id === novoItem.id);
+    if (existIdx >= 0) {
+      this.memoryDb.alunos[existIdx] = espelhoAluno;
+    } else {
+      this.memoryDb.alunos.unshift(espelhoAluno);
+    }
+
+    this.persistToDiskAsync();
+    return {
+      ...novoItem,
+      turmas: selectedTurma,
+    };
+  }
+
   async updateAlunoStatus(id: string, novoStatus: string, turma_id: string): Promise<Aluno | null> {
-    const aluno = this.memoryDb.alunos.find((a) => a.id === id);
+    let aluno: Aluno | undefined = this.memoryDb.alunos.find((a) => a.id === id);
+
+    // Se não encontrou em alunos, pode ter sido registrado inicialmente em lista_espera
+    if (!aluno) {
+      const itemFila = this.memoryDb.lista_espera.find((l) => l.id === id);
+      if (itemFila) {
+        const novoAluno: Aluno = {
+          ...itemFila,
+          status: 'Fila',
+        };
+        this.memoryDb.alunos.unshift(novoAluno);
+        aluno = novoAluno;
+      }
+    }
+
     if (!aluno) return null;
 
     const statusAnterior = aluno.status;
     aluno.status = novoStatus;
     aluno.turma_id = turma_id;
+
+    // Se foi promovido a 'Ativo', atualiza status na lista_espera para 'aprovado'
+    const filaItem = this.memoryDb.lista_espera.find((l) => l.id === id);
+    if (filaItem) {
+      if (novoStatus === 'Ativo') {
+        filaItem.status = 'aprovado';
+      } else if (novoStatus === 'Inativo') {
+        filaItem.status = 'recusado';
+      }
+    }
 
     const turma = this.memoryDb.turmas.find((t) => t.id === turma_id);
     if (turma) {
@@ -542,14 +674,16 @@ export class DatabaseService implements OnModuleInit {
 
   async removeAluno(id: string): Promise<{ success: boolean; message: string }> {
     const index = this.memoryDb.alunos.findIndex((a) => a.id === id);
-    if (index === -1) {
-      return { success: false, message: 'Aluno não encontrado' };
+    let removido: Aluno | undefined;
+    if (index !== -1) {
+      [removido] = this.memoryDb.alunos.splice(index, 1);
     }
 
-    const [removido] = this.memoryDb.alunos.splice(index, 1);
+    // Também remove de lista_espera se constar
+    this.memoryDb.lista_espera = this.memoryDb.lista_espera.filter((l) => l.id !== id);
 
-    if (removido.status === 'Ativo' && removido.turma_id) {
-      const turma = this.memoryDb.turmas.find((t) => t.id === removido.turma_id);
+    if (removido && removido.status === 'Ativo' && removido.turma_id) {
+      const turma = this.memoryDb.turmas.find((t) => t.id === removido!.turma_id);
       if (turma) {
         turma.capacidade += 1;
       }
