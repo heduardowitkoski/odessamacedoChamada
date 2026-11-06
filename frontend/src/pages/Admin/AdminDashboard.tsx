@@ -489,7 +489,92 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleExportTurmasCSV = () => {
+    try {
+      const escape = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+      const headers = [
+        'Nome da Turma',
+        'Turno',
+        'Faixa Etária',
+        'Capacidade de Vagas',
+        'Alunos Matriculados (Ativos)',
+        'Alunos na Fila de Espera',
+        'Situação'
+      ];
+
+      const rows = turmasDb.map((t) => {
+        const ativos = alunosDb.filter((a) => a.turma_id === t.id && a.status === 'Ativo').length;
+        const fila = alunosDb.filter((a) => a.turma_id === t.id && a.status === 'Fila').length;
+        const faixa = `${t.idade_minima ?? 0} a ${t.idade_maxima ?? 120} anos`;
+        const situacao = t.capacidade > 0 ? `Há ${t.capacidade} vaga(s)` : 'Turma cheia';
+
+        return [
+          t.nome,
+          t.turno,
+          faixa,
+          t.capacidade,
+          ativos,
+          fila,
+          situacao
+        ];
+      });
+
+      const csvContent = [
+        headers.map(escape).join(';'),
+        ...rows.map((r) => r.map(escape).join(';'))
+      ].join('\n');
+
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dados_turmas_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Erro ao exportar dados das turmas.');
+    }
+  };
+
   const handleExportCSV = async () => {
+    if (activeMenu === "Turmas") {
+      if (selectedTurmaView) {
+        try {
+          const escape = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+          const headers = ['Aluno', 'Status', 'Responsável', 'Telefone', 'E-mail', 'Presenças', 'Faltas', 'Frequência %'];
+          const rows = (turmaAlunosData?.alunos || []).map((a) => [
+            a.aluno_nome,
+            a.status,
+            a.resp_nome,
+            a.resp_telefone,
+            a.resp_email,
+            a.stats?.presencas || 0,
+            a.stats?.faltas || 0,
+            `${a.stats?.frequenciaPercentual || 100}%`
+          ]);
+          const csvContent = [
+            headers.map(escape).join(';'),
+            ...rows.map((r) => r.map(escape).join(';'))
+          ].join('\n');
+
+          const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `turma_${selectedTurmaView.nome.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+          return;
+        } catch {
+          alert('Erro ao exportar alunos da turma.');
+          return;
+        }
+      } else {
+        handleExportTurmasCSV();
+        return;
+      }
+    }
+
     const turmaId = activeMenu === "Frequência" && selectedTurmaFreq ? selectedTurmaFreq : (selectedTurmaView ? selectedTurmaView.id : '');
     const url = `${getApiBase()}/frequencias/exportar${turmaId ? `?turma_id=${turmaId}` : ''}`;
     try {
@@ -1014,12 +1099,21 @@ export default function AdminDashboard() {
                         Clique em <strong>"Abrir Turma & Ver Alunos"</strong> para ver todos os estudantes matriculados e acompanhar as faltas individualmente.
                       </p>
                     </div>
-                    <button
-                      onClick={() => setShowModalNovaTurma(true)}
-                      className="text-xs text-white bg-amber-500 font-bold px-4 py-2.5 rounded-xl hover:bg-amber-600 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                    >
-                      <Plus size={15} /> Nova Turma
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleExportTurmasCSV}
+                        className="text-xs text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 font-semibold px-3.5 py-2.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                        title="Baixar planilha CSV com os dados de todas as turmas"
+                      >
+                        <Download size={14} /> Exportar CSV
+                      </button>
+                      <button
+                        onClick={() => setShowModalNovaTurma(true)}
+                        className="text-xs text-white bg-amber-500 font-bold px-4 py-2.5 rounded-xl hover:bg-amber-600 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <Plus size={15} /> Nova Turma
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

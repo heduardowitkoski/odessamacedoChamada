@@ -368,7 +368,7 @@ export class RelatoriosService {
       const doc = new PDFDocument({ size: 'A4', margin: 40 });
       const chunks: Buffer[] = [];
 
-      doc.on('data', (chunk) => chunks.push(chunk as Buffer));
+      doc.on('data', (chunk: any) => chunks.push(chunk as Buffer));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 

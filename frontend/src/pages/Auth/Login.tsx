@@ -7,7 +7,7 @@ import { Pencil, ArrowRight, ShieldCheck, GraduationCap, Users, Sparkles, AlertC
 export default function LoginScreen() {
   const [selectedRole, setSelectedRole] = useState<UserRole>('admin');
   const [email, setEmail] = useState(DEMO_USERS.admin.email);
-  const [password, setPassword] = useState('123456');
+  const [password, setPassword] = useState('Admin@123456');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export default function LoginScreen() {
     setSelectedRole(role);
     setError('');
     setEmail(DEMO_USERS[role].email);
-    setPassword('123456');
+    setPassword(role === 'admin' ? 'Admin@123456' : role === 'professor' ? 'Prof@123456' : 'Resp@123456');
   };
 
   const handleLogin = async (e: React.FormEvent) => {

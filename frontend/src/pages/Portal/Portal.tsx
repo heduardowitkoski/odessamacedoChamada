@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, ChevronRight, Award, X, Loader2, Sparkles, ArrowRight } from "lucide-react";
+import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, Award, X, Loader2, Sparkles } from "lucide-react";
 import { getApiBase } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 
@@ -122,12 +122,9 @@ export default function PortalScreen() {
             <Link to="/" className="text-sm font-semibold text-amber-600">
               Turmas
             </Link>
-            <Link to="/mural" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1.5">
-              <span>Mural & Obras</span>
-              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full">Novo</span>
-            </Link>
-            <Link to="/login" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-              Diário & Login
+            <Link to="/mural" className="text-sm font-medium text-gray-600 hover:text-amber-600 transition-colors flex items-center gap-1.5 font-semibold">
+              <Sparkles size={14} className="text-amber-500" />
+              <span>Ver Mural</span>
             </Link>
           </nav>
 
@@ -135,16 +132,12 @@ export default function PortalScreen() {
             <button
               id="btn-verificar-fila"
               onClick={() => setShowFilaModal(true)}
-              className="px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors"
+              className="px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors cursor-pointer"
             >
               Verificar posição na fila
             </button>
-            <Link to="/mural" className="hidden sm:inline-flex px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors items-center gap-1.5">
-              <Sparkles size={14} className="text-amber-500" />
-              Ver Mural
-            </Link>
-            <Link to="/admin" className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm">
-              Área administrativa
+            <Link to="/login" className="px-5 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm">
+              Login
             </Link>
           </div>
         </div>
@@ -169,52 +162,56 @@ export default function PortalScreen() {
               Turmas organizadas por faixa etária, do Infantil ao Melhor Idade. Verifique as vagas disponíveis e faça sua inscrição ou entre na fila de espera.
             </p>
             <div className="flex gap-3 flex-wrap">
-              <Link to="/inscrever" className="px-6 py-3 bg-amber-400 text-[#1C1300] text-sm font-bold rounded-xl hover:bg-amber-300 transition-colors shadow-lg flex items-center gap-2">
-                <Plus size={16} /> Inscrever-se agora
-              </Link>
               <button
                 onClick={() => setShowFilaModal(true)}
-                className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2"
+                className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2 cursor-pointer"
               >
-                <ListOrdered size={16} /> Ver fila de espera
+                <ListOrdered size={16} /> Consultar fila de espera
               </button>
-              <Link to="/mural" className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2">
-                <Sparkles size={16} className="text-amber-300" /> Explorar Galeria de Obras
-              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Filters */}
+      {/* Filters & Single Inscription Action */}
       <section className="max-w-[1440px] mx-auto px-8 py-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
-            <input
-              type="text"
-              placeholder="Buscar turma ou turno..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-11 pl-10 pr-4 rounded-xl border border-amber-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white w-64"
-            />
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+              <input
+                type="text"
+                placeholder="Buscar turma ou turno..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-11 pl-10 pr-4 rounded-xl border border-amber-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white w-64"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter size={14} className="text-gray-400" />
+              {filters.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setActiveFilter(f)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                    activeFilter === f
+                      ? "bg-amber-500 text-white shadow-md"
+                      : "bg-white text-gray-600 border border-gray-200 hover:border-amber-300 hover:text-amber-700"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Filter size={14} className="text-gray-400" />
-            {filters.map((f) => (
-              <button
-                key={f}
-                onClick={() => setActiveFilter(f)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  activeFilter === f
-                    ? "bg-amber-500 text-white shadow-md"
-                    : "bg-white text-gray-600 border border-gray-200 hover:border-amber-300 hover:text-amber-700"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
+
+          <Link
+            to="/inscrever"
+            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-2 shrink-0 cursor-pointer"
+          >
+            <Plus size={16} />
+            <span>Fazer Inscrição</span>
+          </Link>
         </div>
       </section>
 
@@ -270,24 +267,9 @@ export default function PortalScreen() {
 
                         <p className="text-xs text-gray-500 leading-relaxed mb-4">{MOCK_EXTRAS.descricao}</p>
 
-                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-4">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
                           <BookOpen size={12} />
                           {turma.turno}
-                        </div>
-
-                        <div className="mt-4 flex gap-2">
-                          {isFull ? (
-                            <Link to={`/inscrever?turma_id=${turma.id}`} className="flex-1 h-9 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-1.5">
-                              <ListOrdered size={14} /> Entrar na fila
-                            </Link>
-                          ) : (
-                            <Link to={`/inscrever?turma_id=${turma.id}`} className={`flex-1 h-9 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 ${c.btnOpen}`}>
-                              <Plus size={14} /> Inscrever-se
-                            </Link>
-                          )}
-                          <Link to={`/inscrever?turma_id=${turma.id}`} className="h-9 w-9 border border-gray-200 text-gray-400 rounded-xl hover:bg-gray-50 hover:text-amber-600 transition-colors flex items-center justify-center" title="Inscrever-se nesta turma">
-                            <ChevronRight size={15} />
-                          </Link>
                         </div>
                       </div>
                     </div>
@@ -295,31 +277,6 @@ export default function PortalScreen() {
                 })}
               </div>
             )}
-
-            {/* Destaque do Mural de Tarefas e Obras */}
-            <div className="mt-12 bg-white rounded-3xl border border-amber-200/80 p-6 md:p-8 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shrink-0 shadow-md">
-                  <Sparkles size={22} />
-                </div>
-                <div>
-                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base md:text-lg text-[#1C1300]">
-                    Mural de Atividades & Galeria de Desenhos
-                  </h3>
-                  <p className="text-xs md:text-sm text-gray-500 mt-1 max-w-xl leading-relaxed">
-                    Confira a exposição dos trabalhos artísticos, desenhos, técnicas de pintura e criações desenvolvidas pelas turmas do CDE Odessa Macedo.
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                to="/mural"
-                className="px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center gap-2 shrink-0"
-              >
-                <span>Acessar Mural</span>
-                <ArrowRight size={14} />
-              </Link>
-            </div>
           </div>
         </div>
       </main>

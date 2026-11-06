@@ -153,4 +153,50 @@ export class TurmasService {
     }
     return { success: true, message: 'Turma removida com sucesso.' };
   }
+
+  async exportarTurmasCSV(): Promise<string> {
+    const supabase = this.supabaseService.getClient();
+    const turmas = await this.findAll();
+
+    const { data: alunos } = await supabase
+      .from('alunos')
+      .select('id, turma_id, status');
+
+    const alunosList = alunos || [];
+
+    const headers = [
+      'Turma',
+      'Turno',
+      'Faixa Etária',
+      'Capacidade Vagas',
+      'Alunos Matriculados (Ativos)',
+      'Alunos na Fila de Espera',
+      'Situação',
+    ];
+
+    const escape = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+    const linhas: string[] = [headers.map(escape).join(';')];
+
+    for (const t of turmas) {
+      const ativos = alunosList.filter((a) => a.turma_id === t.id && a.status === 'Ativo').length;
+      const fila = alunosList.filter((a) => a.turma_id === t.id && a.status === 'Fila').length;
+      const faixa = `${t.idade_minima ?? 0} a ${t.idade_maxima ?? 120} anos`;
+      const situacao = t.capacidade > 0 ? `Há ${t.capacidade} vagas` : 'Turma cheia';
+
+      linhas.push(
+        [
+          t.nome,
+          t.turno,
+          faixa,
+          t.capacidade,
+          ativos,
+          fila,
+          situacao,
+        ].map(escape).join(';')
+      );
+    }
+
+    return linhas.join('\n');
+  }
 }
+

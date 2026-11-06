@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { TurmasService } from './turmas.service';
 
 @Controller('turmas')
@@ -8,6 +9,15 @@ export class TurmasController {
   @Get()
   async findAll() {
     return this.turmasService.findAll();
+  }
+
+  @Get('exportar-csv')
+  async exportarCSV(@Res() res: Response) {
+    const csv = await this.turmasService.exportarTurmasCSV();
+    const filename = `turmas_${new Date().toISOString().split('T')[0]}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send('\uFEFF' + csv);
   }
 
   @Post()
