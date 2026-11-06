@@ -677,6 +677,11 @@ export default function AdminDashboard() {
               key={label}
               onClick={() => {
                 setActiveMenu(label);
+                if (label === "Fila de espera") {
+                  setActiveTab("fila");
+                } else if (label === "Alunos" || label === "Dashboard") {
+                  setActiveTab("alunos");
+                }
               }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeMenu === label
@@ -732,6 +737,8 @@ export default function AdminDashboard() {
                 ? "Gestão de Administradores"
                 : activeMenu === "Relatórios"
                 ? "Relatórios e Indicadores"
+                : activeMenu === "Fila de espera" || activeTab === "fila"
+                ? "Fila de Espera · Autorização de Inscrições"
                 : "Gestão de Alunos · Aulas de Desenho"}
             </h1>
           </div>
@@ -1564,42 +1571,93 @@ export default function AdminDashboard() {
                       </tbody>
                     </table>
                   ) : (
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-100">
-                          {["Nome", "Responsável", "Turma desejada", "Inscrito em", ""].map((h) => (
-                            <th key={h} className="text-left text-xs font-semibold text-gray-400 px-6 py-3">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {alunosFila.map((f) => (
-                          <tr key={f.id} className="border-b border-gray-50 hover:bg-amber-50/40 transition-colors">
-                            <td className="px-6 py-3">
-                              <p className="font-semibold text-sm text-[#1C1300]">{f.aluno_nome}</p>
-                            </td>
-                            <td className="px-6 py-3">
-                              <p className="text-sm text-gray-600">{f.resp_nome}</p>
-                              <p className="text-xs text-gray-400">{f.resp_telefone}</p>
-                            </td>
-                            <td className="px-6 py-3">
-                              <Badge variant="gray">{f.turmas?.nome}</Badge>
-                            </td>
-                            <td className="px-6 py-3 text-xs text-gray-500">{new Date(f.created_at).toLocaleDateString()}</td>
-                            <td className="px-6 py-3">
-                              <button onClick={() => abrirModalChamar(f)} className="text-xs px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-semibold hover:bg-amber-100 transition-colors flex items-center gap-1 cursor-pointer">
-                                <UserCheck size={11} /> Chamar
-                              </button>
-                            </td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-gray-100 bg-[#FAF8F5]">
+                            <th className="text-left text-xs font-bold text-gray-500 uppercase tracking-wider px-6 py-3.5">Aluno</th>
+                            <th className="text-left text-xs font-bold text-gray-500 uppercase tracking-wider px-6 py-3.5">Idade / Nascimento</th>
+                            <th className="text-left text-xs font-bold text-gray-500 uppercase tracking-wider px-6 py-3.5">Responsável / Parentesco</th>
+                            <th className="text-left text-xs font-bold text-gray-500 uppercase tracking-wider px-6 py-3.5">Contato</th>
+                            <th className="text-left text-xs font-bold text-gray-500 uppercase tracking-wider px-6 py-3.5">Turma Pretendida</th>
+                            <th className="text-left text-xs font-bold text-gray-500 uppercase tracking-wider px-6 py-3.5">Inscrição</th>
+                            <th className="text-right text-xs font-bold text-gray-500 uppercase tracking-wider px-6 py-3.5">Ação</th>
                           </tr>
-                        ))}
-                        {alunosFila.length === 0 && (
-                          <tr>
-                             <td colSpan={5} className="px-6 py-10 text-center text-gray-500">Nenhum aluno na fila.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {alunosFila.map((f) => {
+                            const turmaPretendida = turmasDb.find(t => t.id === f.turma_id) || f.turmas;
+                            return (
+                              <tr
+                                key={f.id}
+                                onClick={() => setSelectedAluno(f)}
+                                className={`hover:bg-amber-50/40 transition-colors cursor-pointer ${selectedAluno?.id === f.id ? "bg-amber-50/70" : ""}`}
+                              >
+                                <td className="px-6 py-3.5">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xs">
+                                      {(f.aluno_nome || f.resp_nome || 'A').charAt(0)}
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-sm text-[#1C1300]">{f.aluno_nome || f.resp_nome}</p>
+                                      {f.aluno_cpf && <p className="text-[11px] text-gray-400 font-mono">CPF: {f.aluno_cpf}</p>}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-3.5 text-xs text-gray-600">
+                                  {f.aluno_nascimento || '—'}
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  <p className="text-xs font-semibold text-gray-800">{f.resp_nome}</p>
+                                  {f.resp_parentesco && (
+                                    <span className="text-[10px] text-gray-400 block font-medium">({f.resp_parentesco})</span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  <a
+                                    href={`https://wa.me/55${(f.resp_telefone || '').replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"
+                                  >
+                                    <Phone size={12} /> {f.resp_telefone || '—'}
+                                  </a>
+                                  {f.resp_email && (
+                                    <span className="text-[11px] text-gray-400 block truncate max-w-[170px]">{f.resp_email}</span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  <Badge variant="amber">{turmaPretendida?.nome || 'Turma Geral'}</Badge>
+                                </td>
+                                <td className="px-6 py-3.5 text-xs text-gray-400">
+                                  {new Date(f.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="px-6 py-3.5 text-right">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      abrirModalChamar(f);
+                                    }}
+                                    className="text-xs px-3.5 py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-xs flex items-center gap-1.5 ml-auto cursor-pointer"
+                                  >
+                                    <UserCheck size={14} /> Chamar / Aceitar
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {alunosFila.length === 0 && (
+                            <tr>
+                              <td colSpan={7} className="px-6 py-12 text-center text-gray-400 text-sm">
+                                <Clock size={28} className="mx-auto text-gray-300 mb-2" />
+                                Nenhum aluno aguardando na fila de espera no momento.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
 

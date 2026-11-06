@@ -488,7 +488,8 @@ export class DatabaseService implements OnModuleInit {
       mapTurmas.set(t.id, t);
     }
 
-    return this.memoryDb.alunos.map((a) => ({
+    // Alunos já matriculados ou registrados em memoryDb.alunos
+    const alunosList: Aluno[] = this.memoryDb.alunos.map((a) => ({
       ...a,
       turmas: mapTurmas.get(a.turma_id) || {
         id: a.turma_id,
@@ -498,6 +499,46 @@ export class DatabaseService implements OnModuleInit {
         created_at: a.created_at,
       },
     }));
+
+    const idsAlunos = new Set(alunosList.map((a) => a.id));
+
+    // Incorpora também registros da lista_espera com status 'aguardando' como Fila
+    for (const le of this.memoryDb.lista_espera) {
+      if (!idsAlunos.has(le.id) && (le.status === 'aguardando' || !le.status)) {
+        const alunoNome = le.aluno_nome || le.nome_aluno || 'Aluno';
+        const respNome = le.resp_nome || le.nome_responsavel || 'Responsável';
+        const respTel = le.resp_telefone || le.telefone_responsavel || '';
+        const respEmail = le.resp_email || le.email_responsavel || '';
+        const dataNasc = le.aluno_nascimento || le.data_nascimento || '';
+
+        alunosList.push({
+          id: le.id,
+          turma_id: le.turma_id || '',
+          resp_nome: respNome,
+          resp_cpf: le.resp_cpf || '',
+          resp_rg: le.resp_rg || '',
+          resp_parentesco: le.resp_parentesco || '',
+          resp_email: respEmail,
+          resp_telefone: respTel,
+          resp_endereco: le.resp_endereco || '',
+          resp_cep: le.resp_cep || '',
+          resp_bairro: le.resp_bairro || '',
+          aluno_nome: alunoNome,
+          aluno_nascimento: dataNasc,
+          aluno_sexo: le.aluno_sexo || '',
+          aluno_cpf: le.aluno_cpf || '',
+          aluno_escola: le.aluno_escola || '',
+          aluno_experiencia: le.aluno_experiencia || '',
+          aluno_necessidades: le.aluno_necessidades || '',
+          status: 'Fila',
+          created_at: le.created_at || new Date().toISOString(),
+          turmas: mapTurmas.get(le.turma_id) || undefined,
+        });
+        idsAlunos.add(le.id);
+      }
+    }
+
+    return alunosList;
   }
 
   async getAlunoById(id: string): Promise<Aluno | null> {
