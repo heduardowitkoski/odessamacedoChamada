@@ -6,7 +6,7 @@ export function getApiBase(): string {
       return 'http://localhost:3000';
     }
   }
-  return (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+  return (import.meta as any).env?.VITE_API_URL || 'https://odessamacedochamada.onrender.com';
 }
 
 export const API_BASE = getApiBase();
