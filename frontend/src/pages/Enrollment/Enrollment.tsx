@@ -211,6 +211,7 @@ export default function EnrollmentScreen() {
     resp_nome: "",
     resp_cpf: "",
     resp_rg: "",
+    resp_parentesco: "",
     resp_email: "",
     resp_telefone: "",
     resp_endereco: "",
@@ -218,6 +219,9 @@ export default function EnrollmentScreen() {
     resp_bairro: "",
     turma_id: preselectedTurmaId
   });
+
+  // Para adultos: toggle para acionar responsável opcional
+  const [adultoTemResponsavel, setAdultoTemResponsavel] = useState(false);
 
   useEffect(() => {
     if (preselectedTurmaId && !formData.turma_id) {
@@ -286,7 +290,13 @@ export default function EnrollmentScreen() {
         return null;
 
       case "resp_nome":
-        if (isMinor) return validateFullName(value);
+        if (isMinor || adultoTemResponsavel) return validateFullName(value);
+        return null;
+
+      case "resp_parentesco":
+        if (isMinor || adultoTemResponsavel) {
+          if (!value.trim()) return "Informe o parentesco com o aluno.";
+        }
         return null;
 
       case "resp_cpf": {
@@ -509,23 +519,10 @@ export default function EnrollmentScreen() {
 
     // Etapa 1: Responsável ou Contato
     if (targetStep === 1) {
-      const fields = isMinor
-        ? ([
-            "resp_nome",
-            "resp_cpf",
-            "resp_email",
-            "resp_telefone",
-            "resp_endereco",
-            "resp_cep",
-            "resp_bairro"
-          ] as const)
-        : ([
-            "resp_email",
-            "resp_telefone",
-            "resp_endereco",
-            "resp_cep",
-            "resp_bairro"
-          ] as const);
+      const needsResp = isMinor || adultoTemResponsavel;
+      const fields = needsResp
+        ? (["resp_nome", "resp_parentesco", "resp_cpf", "resp_email", "resp_telefone", "resp_endereco", "resp_cep", "resp_bairro"] as const)
+        : (["resp_email", "resp_telefone", "resp_endereco", "resp_cep", "resp_bairro"] as const);
 
       fields.forEach((field) => {
         const val = formData[field];
@@ -555,23 +552,10 @@ export default function EnrollmentScreen() {
         "aluno_experiencia"
       ].forEach((f) => (touchedFields[f] = true));
     } else if (targetStep === 1) {
-      const fields = isMinor
-        ? [
-            "resp_nome",
-            "resp_cpf",
-            "resp_email",
-            "resp_telefone",
-            "resp_endereco",
-            "resp_cep",
-            "resp_bairro"
-          ]
-        : [
-            "resp_email",
-            "resp_telefone",
-            "resp_endereco",
-            "resp_cep",
-            "resp_bairro"
-          ];
+      const needsResp = isMinor || adultoTemResponsavel;
+      const fields = needsResp
+        ? ["resp_nome", "resp_parentesco", "resp_cpf", "resp_email", "resp_telefone", "resp_endereco", "resp_cep", "resp_bairro"]
+        : ["resp_email", "resp_telefone", "resp_endereco", "resp_cep", "resp_bairro"];
       fields.forEach((f) => (touchedFields[f] = true));
     } else if (targetStep === 2) {
       touchedFields.turma_id = true;
@@ -588,8 +572,8 @@ export default function EnrollmentScreen() {
       return;
     }
 
-    // Se saiu do Passo 0 (Aluno) e o aluno é adulto, sincroniza dados para o responsável
-    if (step === 0 && isAdult) {
+    // Se saiu do Passo 0 (Aluno) e o aluno é adulto sem responsável opcional, sincroniza dados
+    if (step === 0 && isAdult && !adultoTemResponsavel) {
       setFormData((prev) => ({
         ...prev,
         resp_nome: prev.aluno_nome,
@@ -656,8 +640,9 @@ export default function EnrollmentScreen() {
     const payload = {
       ...formData,
       aluno_nascimento: birthIso || formData.aluno_nascimento,
-      resp_nome: isAdult ? formData.aluno_nome : formData.resp_nome,
-      resp_cpf: isAdult ? (formData.resp_cpf || formData.aluno_cpf) : formData.resp_cpf,
+      resp_nome: isAdult && !adultoTemResponsavel ? formData.aluno_nome : formData.resp_nome,
+      resp_cpf: isAdult && !adultoTemResponsavel ? (formData.aluno_cpf || formData.resp_cpf) : formData.resp_cpf,
+      resp_parentesco: isAdult && !adultoTemResponsavel ? "Próprio" : formData.resp_parentesco,
     };
 
     setLoading(true);
@@ -980,8 +965,38 @@ export default function EnrollmentScreen() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-5">
-                    {/* Se menor: Nome e CPF do Responsável */}
-                    {isMinor && (
+                    {/* Para adulto: toggle para acionar responsável opcional */}
+                    {isAdult && (
+                      <div className="col-span-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdultoTemResponsavel((prev) => {
+                              if (prev) {
+                                // limpa campos do responsável ao desativar
+                                setFormData((fd) => ({ ...fd, resp_nome: fd.aluno_nome, resp_cpf: fd.aluno_cpf, resp_parentesco: "" }));
+                              }
+                              return !prev;
+                            });
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${
+                            adultoTemResponsavel
+                              ? "border-amber-400 bg-amber-50 text-amber-900"
+                              : "border-gray-200 bg-gray-50 text-gray-600 hover:border-amber-300"
+                          }`}
+                        >
+                          <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${adultoTemResponsavel ? "border-amber-500 bg-amber-500" : "border-gray-300"}`}>
+                            {adultoTemResponsavel && <span className="w-2 h-2 rounded-full bg-white" />}
+                          </span>
+                          {adultoTemResponsavel
+                            ? "Responsável adicional ativado — preencha os dados abaixo"
+                            : "Adicionar um responsável (opcional)"}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Campos do responsável: exibidos para menores OU adultos com toggle ativo */}
+                    {(isMinor || adultoTemResponsavel) && (
                       <>
                         <div className="col-span-2">
                           <label className="block text-xs font-semibold text-gray-600 mb-1.5">
@@ -992,7 +1007,7 @@ export default function EnrollmentScreen() {
                             value={formData.resp_nome}
                             onChange={handleChange}
                             onBlur={handleBlur}
-                            placeholder="Nome e sobrenome do responsável legal"
+                            placeholder="Nome e sobrenome do responsável"
                             className={getInputClass("resp_nome")}
                           />
                           {(touched.resp_nome || submitAttempted) && errors.resp_nome && (
@@ -1002,9 +1017,43 @@ export default function EnrollmentScreen() {
                           )}
                         </div>
 
-                        <div className="col-span-2">
+                        {/* Parentesco */}
+                        <div>
                           <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                            CPF do responsável legal <span className="text-red-500">*</span>
+                            Parentesco <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            name="resp_parentesco"
+                            value={formData.resp_parentesco}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            className={getInputClass("resp_parentesco")}
+                          >
+                            <option value="">Selecione...</option>
+                            <option value="Pai">Pai</option>
+                            <option value="Mãe">Mãe</option>
+                            <option value="Avô">Avô</option>
+                            <option value="Avó">Avó</option>
+                            <option value="Tio">Tio</option>
+                            <option value="Tia">Tia</option>
+                            <option value="Irmão">Irmão</option>
+                            <option value="Irmã">Irmã</option>
+                            <option value="Cônjuge">Cônjuge</option>
+                            <option value="Padrasto">Padrasto</option>
+                            <option value="Madrasta">Madrasta</option>
+                            <option value="Responsável legal">Responsável legal</option>
+                            <option value="Outro">Outro</option>
+                          </select>
+                          {(touched.resp_parentesco || submitAttempted) && errors.resp_parentesco && (
+                            <p className="text-red-600 text-xs font-medium mt-1.5 flex items-center gap-1">
+                              <AlertCircle size={13} /> {errors.resp_parentesco}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                            CPF do responsável <span className="text-red-500">*</span>
                           </label>
                           <input
                             name="resp_cpf"
@@ -1066,7 +1115,7 @@ export default function EnrollmentScreen() {
                       )}
                     </div>
 
-                    {/* CEP (com proteção contra esquecimento do erro) */}
+                    {/* CEP */}
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center justify-between">
                         <span>CEP <span className="text-red-500">*</span></span>
@@ -1300,8 +1349,8 @@ export default function EnrollmentScreen() {
                         </button>
                       </div>
                       <ul className="ml-6 space-y-1 text-xs text-gray-600">
-                        {isMinor && <li><strong>Nome:</strong> {formData.resp_nome}</li>}
-                        {isMinor && <li><strong>CPF:</strong> {formData.resp_cpf}</li>}
+                        {(isMinor || adultoTemResponsavel) && <li><strong>Nome:</strong> {formData.resp_nome} {formData.resp_parentesco && <span className="text-gray-400">({formData.resp_parentesco})</span>}</li>}
+                        {(isMinor || adultoTemResponsavel) && <li><strong>CPF:</strong> {formData.resp_cpf}</li>}
                         <li><strong>Contato:</strong> {formData.resp_telefone} | {formData.resp_email}</li>
                         <li><strong>Endereço:</strong> {formData.resp_endereco} - {formData.resp_bairro} (CEP: {formData.resp_cep})</li>
                       </ul>

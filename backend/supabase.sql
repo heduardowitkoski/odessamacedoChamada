@@ -10,6 +10,7 @@ CREATE TABLE alunos (
   resp_nome text NOT NULL,
   resp_cpf text,
   resp_rg text,
+  resp_parentesco text,
   resp_email text,
   resp_telefone text NOT NULL,
   resp_endereco text,

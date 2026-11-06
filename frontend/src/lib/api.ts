@@ -27,6 +27,7 @@ export interface Aluno {
   resp_nome: string;
   resp_cpf?: string;
   resp_rg?: string;
+  resp_parentesco?: string;
   resp_email?: string;
   resp_telefone: string;
   resp_endereco?: string;

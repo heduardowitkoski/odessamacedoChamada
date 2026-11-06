@@ -84,13 +84,14 @@ export class AlunosService {
     const resp_cpf = createAlunoDto.resp_cpf?.trim() || (isAdult ? createAlunoDto.aluno_cpf?.trim() : '');
     const aluno_nome = createAlunoDto.aluno_nome?.trim();
 
-    const normalizedDto = {
-      ...createAlunoDto,
-      aluno_nome,
-      aluno_nascimento,
-      resp_nome,
-      resp_cpf,
-    };
+	const normalizedDto = {
+	  ...createAlunoDto,
+	  aluno_nome,
+	  aluno_nascimento,
+	  resp_nome,
+	  resp_cpf,
+	  status: 'Fila',
+	};
 
     // 5. Salva de forma ultra-rápida no DatabaseService com sync assíncrono
     if (this.databaseService) {
@@ -98,12 +99,8 @@ export class AlunosService {
     }
 
     // Fallback direto ao Supabase
-    const supabase = this.supabaseService.getClient();
-    let status = 'Ativo';
-    if (turmaWithAge.capacidade <= 0) {
-      status = 'Fila';
-    }
-
+    const status = 'Fila';
+    
     const { data, error } = await supabase
       .from('alunos')
       .insert([

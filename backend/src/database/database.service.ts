@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
@@ -20,6 +20,7 @@ export interface Aluno {
   resp_nome: string;
   resp_cpf?: string;
   resp_rg?: string;
+  resp_parentesco?: string;
   resp_email?: string;
   resp_telefone: string;
   resp_endereco?: string;
@@ -481,17 +482,15 @@ export class DatabaseService implements OnModuleInit {
       selectedTurma = this.memoryDb.turmas[0];
     }
 
-    let status = 'Ativo';
-    if (selectedTurma && selectedTurma.capacidade <= 0) {
-      status = 'Fila';
-    }
-
+    const status = 'Fila';
+    
     const novo: Aluno = {
       id: randomUUID(),
       turma_id: selectedTurma ? selectedTurma.id : dto.turma_id || randomUUID(),
       resp_nome: dto.resp_nome || 'Responsável',
       resp_cpf: dto.resp_cpf || '',
       resp_rg: dto.resp_rg || '',
+      resp_parentesco: dto.resp_parentesco || '',
       resp_email: dto.resp_email || '',
       resp_telefone: dto.resp_telefone || '(53) 99999-0000',
       resp_endereco: dto.resp_endereco || '',
@@ -509,10 +508,6 @@ export class DatabaseService implements OnModuleInit {
     };
 
     this.memoryDb.alunos.unshift(novo);
-
-    if (status === 'Ativo' && selectedTurma && selectedTurma.capacidade > 0) {
-      selectedTurma.capacidade -= 1;
-    }
 
     this.persistToDiskAsync();
     return {
