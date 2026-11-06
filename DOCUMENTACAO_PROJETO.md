@@ -86,5 +86,57 @@
 | `GET` | `/relatorios/resumo` | Indicadores consolidados de frequência por turma e totais gerais |
 | `GET` | `/relatorios/fila-espera/csv` \| `/relatorios/fila-espera/pdf` | Exporta a lista de espera em CSV ou PDF |
 | `GET` | `/relatorios/frequencias/csv` \| `/relatorios/frequencias/pdf` | Exporta o relatório de frequência (filtros `turma_id`, `data_inicio`, `data_fim`) |
+| `GET` | `/turmas/exportar-csv` | Exporta dados completos de todas as turmas em CSV |
+| `GET` | `/frequencias/minhas-faltas` | Retorna faltas, presenças e métricas do aluno para o responsável |
+| `GET` | `/admin/usuarios` \| `POST /admin/usuarios` | Listagem e criação de outros administradores |
+
+---
+
+## 4. Mapeamento Arquitetural: Arquivos e Responsabilidades
+
+### 4.1. Camada de Apresentação (Frontend React SPA)
+* **Ponto de Entrada e Rotas:**
+  * `frontend/src/main.tsx`: Ponto de montagem React na DOM.
+  * `frontend/src/App.tsx`: Configuração de rotas públicas e rotas protegidas por papel.
+* **Páginas (Views):**
+  * `frontend/src/pages/Portal/Portal.tsx`: Portal público com turmas, vagas e acesso rápido.
+  * `frontend/src/pages/Enrollment/Enrollment.tsx`: Formulário multi-step de matrícula e fila de espera.
+  * `frontend/src/pages/Auth/Login.tsx`: Autenticação por perfil (Admin, Professor, Responsável).
+  * `frontend/src/pages/Auth/ResetPassword.tsx`: Redefinição e definição de senha de primeiro acesso.
+  * `frontend/src/pages/Responsible/ResponsiblePortal.tsx`: Portal exclusivo do responsável para frequência.
+  * `frontend/src/pages/Professor/ProfessorPortal.tsx`: Portal do professor para chamada diária e mural.
+  * `frontend/src/pages/Admin/AdminDashboard.tsx`: Painel administrativo integral (alunos, fila, turmas, admins).
+  * `frontend/src/pages/Admin/ReportsTab.tsx`: Aba analítica e relatórios consolidados do administrador.
+  * `frontend/src/pages/Mural/MuralPage.tsx`: Galeria e mural de obras e trabalhos desenvolvidos nas aulas.
+* **Segurança e Componentes Reutilizáveis:**
+  * `frontend/src/components/ui/PrivateRoute.tsx`: Guardião de rotas com controle de acesso baseado em papéis (RBAC).
+  * `frontend/src/components/ui/StudentHistoryModal.tsx`: Modal com histórico individual de chamadas do estudante.
+  * `frontend/src/components/mural/MuralBoard.tsx`: Quadro interativo de postagens de obras.
+* **Serviços de Cliente:**
+  * `frontend/src/lib/supabase.ts`: Conexão com o Supabase Auth e Banco no browser.
+  * `frontend/src/lib/auth.ts`: Gestão de sessões ativas e perfis.
+  * `frontend/src/lib/api.ts`: Resolução dinâmica do endpoint do backend.
+  * `frontend/src/lib/muralService.ts`: Comunicação com o mural de obras.
+
+### 4.2. Camada de Serviços e Negócio (Backend NestJS)
+* **Núcleo & Infraestrutura:**
+  * `backend/src/main.ts`: Bootstrap da API, CORS e porta HTTP.
+  * `backend/src/app.module.ts`: Módulo raiz que integra os submódulos de negócio.
+  * `backend/src/supabase/supabase.service.ts`: Cliente administrativo do Supabase (`service_role`).
+  * `backend/src/database/database.service.ts`: Fallback de persistência e resiliência local.
+* **Módulos de Domínio:**
+  * **Alunos & Fila:** `backend/src/alunos/alunos.controller.ts`, `alunos.service.ts` e `aluno-validator.ts`.
+  * **Turmas & Vagas:** `backend/src/turmas/turmas.controller.ts` e `turmas.service.ts`.
+  * **Frequência & Chamada:** `backend/src/frequencias/frequencias.controller.ts` e `frequencias.service.ts`.
+  * **Administradores:** `backend/src/admin/admin.controller.ts` e `admin.service.ts`.
+  * **E-mail Transacional:** `backend/src/email/email.service.ts` (Nodemailer e templates HTML).
+  * **Mural de Obras:** `backend/src/mural/mural.controller.ts`, `mural.service.ts` e `mural.dto.ts`.
+  * **Relatórios:** `backend/src/relatorios/relatorios.controller.ts` e `relatorios.service.ts` (PDFKit / CSV).
+
+### 4.3. Camada de Dados e Migrações (PostgreSQL / Supabase)
+* `backend/supabase.sql`: Estrutura de tabelas relacionais (`turmas`, `alunos`).
+* `backend/frequencias.sql`: Tabela `frequencias` com restrição única por aluno e data.
+* `backend/update_turmas_faixa_etaria.sql`: Migração de colunas `idade_minima` e `idade_maxima`.
+* `backend/seed_turmas.sql`: Carga inicial de turmas.
 
 ---
