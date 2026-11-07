@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2, Menu
+  Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2, Menu
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Avatar } from "../../components/ui/Avatar";
 import { Badge } from "../../components/ui/Badge";
 import { supabase } from "../../lib/supabase";
 import MuralBoard from "../../components/mural/MuralBoard";
-import { clearUserSession } from "../../lib/auth";
+import { clearUserSession, getCurrentUser, saveUserSession, type UserProfile } from "../../lib/auth";
 import ReportsTab from "./ReportsTab";
 import StudentHistoryModal from "../../components/ui/StudentHistoryModal";
 import {
@@ -86,6 +86,26 @@ export default function AdminDashboard() {
     email_enviado: boolean;
   } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Estados para Edição de Aluno
+  const [alunoParaEditar, setAlunoParaEditar] = useState<any>(null);
+  const [editandoAluno, setEditandoAluno] = useState(false);
+  const [alunoEditForm, setAlunoEditForm] = useState<any>({});
+
+  // Estados para Editar Administrador
+  const [adminParaEditar, setAdminParaEditar] = useState<any>(null);
+  const [editandoAdmin, setEditandoAdmin] = useState(false);
+  const [adminEditForm, setAdminEditForm] = useState({ nome: '', email: '' });
+
+  // Estados para Meus Dados (Configurações)
+  const [meuPerfil, setMeuPerfil] = useState<UserProfile | null>(() => getCurrentUser());
+  const [perfilForm, setPerfilForm] = useState({
+    name: meuPerfil?.name || 'Coordenação CDE Odessa Macedo',
+    email: meuPerfil?.email || 'admin@cultura.bage.rs.gov.br',
+    cargo: meuPerfil?.cargo || 'Administrador Geral',
+  });
+  const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+  const [sucessoPerfil, setSucessoPerfil] = useState(false);
 
   const navigate = useNavigate();
 
@@ -310,6 +330,151 @@ export default function AdminDashboard() {
       }
     } catch (e) {
       alert("Erro de conexão");
+    }
+  };
+
+  const handleOpenEditAdmin = (admin: any) => {
+    setAdminParaEditar(admin);
+    setAdminEditForm({
+      nome: admin.nome || '',
+      email: admin.email || '',
+    });
+  };
+
+  const handleSaveEditAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminParaEditar) return;
+    setEditandoAdmin(true);
+    try {
+      const res = await fetch(`${getApiBase()}/admin/usuarios/${adminParaEditar.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(adminEditForm),
+      });
+      if (res.ok) {
+        alert('Dados do administrador atualizados com sucesso!');
+        setAdminParaEditar(null);
+        fetchAdmins();
+      } else {
+        const err = await res.json();
+        alert('Erro ao atualizar: ' + (err.message || 'Tente novamente'));
+      }
+    } catch {
+      alert('Erro de conexão ao atualizar administrador.');
+    } finally {
+      setEditandoAdmin(false);
+    }
+  };
+
+  const handleOpenEditAluno = (aluno: any) => {
+    setAlunoParaEditar(aluno);
+    setAlunoEditForm({
+      aluno_nome: aluno.aluno_nome || '',
+      aluno_nascimento: aluno.aluno_nascimento ? aluno.aluno_nascimento.split('T')[0] : '',
+      aluno_cpf: aluno.aluno_cpf || '',
+      aluno_sexo: aluno.aluno_sexo || '',
+      turma_id: aluno.turma_id || '',
+      resp_nome: aluno.resp_nome || '',
+      resp_cpf: aluno.resp_cpf || '',
+      resp_email: aluno.resp_email || '',
+      resp_telefone: aluno.resp_telefone || '',
+      resp_parentesco: aluno.resp_parentesco || '',
+      resp_endereco: aluno.resp_endereco || '',
+      resp_bairro: aluno.resp_bairro || '',
+      resp_cep: aluno.resp_cep || '',
+      aluno_necessidades: aluno.aluno_necessidades || '',
+    });
+  };
+
+  const handleSaveEditAluno = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!alunoParaEditar) return;
+    setEditandoAluno(true);
+    try {
+      const res = await fetch(`${getApiBase()}/alunos/${alunoParaEditar.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(alunoEditForm),
+      });
+
+      // Atualização direta no Supabase para integridade imediata
+      try {
+        await supabase.from('alunos').update({
+          aluno_nome: alunoEditForm.aluno_nome,
+          aluno_nascimento: alunoEditForm.aluno_nascimento,
+          aluno_cpf: alunoEditForm.aluno_cpf,
+          aluno_sexo: alunoEditForm.aluno_sexo,
+          turma_id: alunoEditForm.turma_id,
+          resp_nome: alunoEditForm.resp_nome,
+          resp_cpf: alunoEditForm.resp_cpf,
+          resp_email: alunoEditForm.resp_email,
+          resp_telefone: alunoEditForm.resp_telefone,
+          resp_parentesco: alunoEditForm.resp_parentesco,
+          resp_endereco: alunoEditForm.resp_endereco,
+          resp_bairro: alunoEditForm.resp_bairro,
+          resp_cep: alunoEditForm.resp_cep,
+        }).eq('id', alunoParaEditar.id);
+
+        await supabase.from('lista_espera').update({
+          aluno_nome: alunoEditForm.aluno_nome,
+          nome_aluno: alunoEditForm.aluno_nome,
+          data_nascimento: alunoEditForm.aluno_nascimento,
+          aluno_nascimento: alunoEditForm.aluno_nascimento,
+          resp_nome: alunoEditForm.resp_nome,
+          nome_responsavel: alunoEditForm.resp_nome,
+          resp_email: alunoEditForm.resp_email,
+          email_responsavel: alunoEditForm.resp_email,
+          resp_telefone: alunoEditForm.resp_telefone,
+          telefone_responsavel: alunoEditForm.resp_telefone,
+          turma_id: alunoEditForm.turma_id,
+        }).eq('id', alunoParaEditar.id);
+      } catch (errSup) {
+        console.warn('Aviso ao sincronizar direto no Supabase:', errSup);
+      }
+
+      if (res.ok) {
+        alert('Dados cadastrais do aluno atualizados com sucesso!');
+        const updated = { ...alunoParaEditar, ...alunoEditForm };
+        if (selectedAluno?.id === alunoParaEditar.id) {
+          setSelectedAluno(updated);
+        }
+        setAlunoParaEditar(null);
+        await fetchAlunos();
+        await fetchTurmas();
+        await refreshTurmaAlunos();
+      } else {
+        const err = await res.json();
+        alert('Erro ao atualizar: ' + (err.message || 'Tente novamente'));
+      }
+    } catch {
+      alert('Erro de conexão ao salvar alterações do aluno.');
+    } finally {
+      setEditandoAluno(false);
+    }
+  };
+
+  const handleSalvarMeuPerfil = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSalvandoPerfil(true);
+    try {
+      const atual = getCurrentUser();
+      const novoPerfil: UserProfile = {
+        id: atual?.id || 'usr-admin-1',
+        role: 'admin',
+        name: perfilForm.name.trim(),
+        email: perfilForm.email.trim(),
+        cargo: perfilForm.cargo.trim(),
+        avatarUrl: atual?.avatarUrl,
+      };
+      saveUserSession(novoPerfil);
+      setMeuPerfil(novoPerfil);
+      setSucessoPerfil(true);
+      setTimeout(() => setSucessoPerfil(false), 4000);
+      alert('Seus dados foram atualizados com sucesso!');
+    } catch {
+      alert('Erro ao atualizar seus dados.');
+    } finally {
+      setSalvandoPerfil(false);
     }
   };
 
@@ -671,7 +836,6 @@ export default function AdminDashboard() {
   };
 
   const menuItems = [
-    { icon: <Home size={17} />, label: "Dashboard" },
     { icon: <Users size={17} />, label: "Alunos", badge: alunosAtivos.length },
     { icon: <ListOrdered size={17} />, label: "Fila de espera", badge: alunosFila.length },
     { 
@@ -751,7 +915,7 @@ export default function AdminDashboard() {
                 setActiveMenu(label);
                 if (label === "Fila de espera") {
                   setActiveTab("fila");
-                } else if (label === "Alunos" || label === "Dashboard") {
+                } else if (label === "Alunos") {
                   setActiveTab("alunos");
                 }
               }}
@@ -774,11 +938,23 @@ export default function AdminDashboard() {
 
         <div className="p-4 border-t border-amber-900/40 min-w-[240px]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold">SC</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-xs font-semibold truncate">Sec. de Cultura</p>
-              <p className="text-amber-400/70 text-[10px]">Administrador</p>
-            </div>
+            <button
+              onClick={() => setActiveMenu("Configurações")}
+              className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer group"
+              title="Ir para Configurações / Editar meus dados"
+            >
+              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold shrink-0 group-hover:bg-amber-400 transition-colors">
+                {meuPerfil?.name ? meuPerfil.name.charAt(0).toUpperCase() : 'A'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-xs font-semibold truncate group-hover:text-amber-300 transition-colors">
+                  {meuPerfil?.name || 'Administrador'}
+                </p>
+                <p className="text-amber-400/70 text-[10px] truncate">
+                  {meuPerfil?.cargo || 'Administrador'}
+                </p>
+              </div>
+            </button>
             <button 
               onClick={async () => {
                 clearUserSession();
@@ -816,6 +992,8 @@ export default function AdminDashboard() {
                 ? "Gestão de Administradores"
                 : activeMenu === "Relatórios"
                 ? "Relatórios e Indicadores"
+                : activeMenu === "Configurações"
+                ? "Configurações da Conta · Meus Dados"
                 : activeMenu === "Fila de espera" || activeTab === "fila"
                 ? "Fila de Espera · Autorização de Inscrições"
                 : "Gestão de Alunos · Aulas de Desenho"}
@@ -1540,12 +1718,21 @@ export default function AdminDashboard() {
                             {adm.created_at ? new Date(adm.created_at).toLocaleDateString() : "—"}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => handleDeleteAdmin(adm)}
-                              className="px-3 py-1.5 text-xs text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg font-semibold transition-colors flex items-center gap-1 ml-auto cursor-pointer"
-                            >
-                              <Trash2 size={13} /> Remover
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleOpenEditAdmin(adm)}
+                                className="px-3 py-1.5 text-xs text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Editar dados cadastrais do administrador"
+                              >
+                                <Pencil size={13} /> Editar
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAdmin(adm)}
+                                className="px-3 py-1.5 text-xs text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <Trash2 size={13} /> Remover
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1569,8 +1756,97 @@ export default function AdminDashboard() {
           ) : activeMenu === "Relatórios" ? (
             /* --- MÓDULO DE RELATÓRIOS --- */
             <ReportsTab turmas={turmasDb} alertasFaltas={alertasFaltas} />
+          ) : activeMenu === "Configurações" ? (
+            /* --- MÓDULO DE CONFIGURAÇÕES / EDITAR MEUS DADOS --- */
+            <div className="max-w-3xl space-y-6">
+              <div className="bg-white rounded-3xl border border-amber-100 shadow-sm p-6 sm:p-8">
+                <div className="flex items-center gap-4 pb-6 border-b border-gray-100 mb-6">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                    {meuPerfil?.name ? meuPerfil.name.charAt(0).toUpperCase() : 'A'}
+                  </div>
+                  <div>
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300]">
+                      Editar Meus Dados
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Atualize suas informações de identificação e perfil institucional de administrador.
+                    </p>
+                  </div>
+                </div>
+
+                {sucessoPerfil && (
+                  <div className="mb-6 p-4 rounded-2xl bg-green-50 border border-green-200 flex items-center gap-3 text-green-800 text-xs font-semibold">
+                    <CheckCircle className="text-green-600 shrink-0" size={18} />
+                    <span>Seus dados foram atualizados com sucesso e salvos para esta sessão.</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSalvarMeuPerfil} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        Nome Completo *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={perfilForm.name}
+                        onChange={(e) => setPerfilForm({ ...perfilForm, name: e.target.value })}
+                        className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        E-mail de Acesso *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={perfilForm.email}
+                        onChange={(e) => setPerfilForm({ ...perfilForm, email: e.target.value })}
+                        className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      Cargo / Função Institucional
+                    </label>
+                    <input
+                      type="text"
+                      value={perfilForm.cargo}
+                      onChange={(e) => setPerfilForm({ ...perfilForm, cargo: e.target.value })}
+                      placeholder="Ex: Coordenador(a) Geral, Secretaria de Cultura"
+                      className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div className="pt-4 flex items-center justify-end gap-3 border-t border-gray-100">
+                    <button
+                      type="submit"
+                      disabled={salvandoPerfil}
+                      className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {salvandoPerfil ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Salvando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={15} />
+                          <span>Salvar Meus Dados</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           ) : (
-            /* --- DASHBOARD / VISÃO DE ALUNOS --- */
+            /* --- VISÃO DE ALUNOS & FILA DE ESPERA --- */
             <div className="flex gap-6">
               {/* Tabela principal */}
               <div className="flex-1 space-y-6">
@@ -1629,6 +1905,16 @@ export default function AdminDashboard() {
                               <Badge variant={a.status === "Ativo" ? "green" : "gray"}>{a.status}</Badge>
                             </td>
                             <td className="px-6 py-3 text-right">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditAluno(a);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer mr-1"
+                                title="Editar dados cadastrais do aluno"
+                              >
+                                <Pencil size={15} />
+                              </button>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1714,6 +2000,16 @@ export default function AdminDashboard() {
                                 </td>
                                 <td className="px-6 py-3.5 text-right">
                                   <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEditAluno(f);
+                                      }}
+                                      className="p-1.5 text-gray-500 hover:text-amber-800 hover:bg-amber-50 rounded-xl transition-colors cursor-pointer border border-gray-200"
+                                      title="Editar dados cadastrais do candidato"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1826,6 +2122,12 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="p-5 pt-0 space-y-2">
+                    <button
+                      onClick={() => handleOpenEditAluno(selectedAluno)}
+                      className="w-full h-10 bg-amber-50 text-amber-900 border border-amber-200 text-sm font-bold rounded-xl hover:bg-amber-100 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                    >
+                      <Pencil size={14} /> Editar dados cadastrais
+                    </button>
                     <button
                       onClick={() => setStudentHistoryModalId(selectedAluno.id)}
                       className="w-full h-10 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
@@ -2362,6 +2664,293 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Editar Administrador */}
+      {adminParaEditar && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-amber-100">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <Pencil size={18} />
+                </div>
+                <div>
+                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                    Editar Administrador
+                  </h3>
+                  <p className="text-xs text-gray-400">Atualize os dados cadastrais da conta administrativa</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAdminParaEditar(null)}
+                className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditAdmin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Nome do Administrador *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={adminEditForm.nome}
+                  onChange={(e) => setAdminEditForm({ ...adminEditForm, nome: e.target.value })}
+                  className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  E-mail institucional *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={adminEditForm.email}
+                  onChange={(e) => setAdminEditForm({ ...adminEditForm, email: e.target.value })}
+                  className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setAdminParaEditar(null)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editandoAdmin}
+                  className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {editandoAdmin ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" /> Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={13} /> Salvar Alterações
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Editar Dados Cadastrais do Aluno / Responsável */}
+      {alunoParaEditar && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl border border-amber-100 my-8">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                  <Pencil size={20} />
+                </div>
+                <div>
+                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
+                    Editar Cadastro do Aluno
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Modifique os dados cadastrais do aluno e de seu responsável legal
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAlunoParaEditar(null)}
+                className="text-gray-400 hover:text-gray-700 p-1.5 rounded-xl hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditAluno} className="space-y-5">
+              {/* DADOS DO ALUNO */}
+              <div>
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3">
+                  1. Dados do Aluno
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Nome Completo do Aluno *</label>
+                    <input
+                      type="text"
+                      required
+                      value={alunoEditForm.aluno_nome || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, aluno_nome: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Data de Nascimento</label>
+                    <input
+                      type="date"
+                      value={alunoEditForm.aluno_nascimento || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, aluno_nascimento: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">CPF do Aluno</label>
+                    <input
+                      type="text"
+                      placeholder="000.000.000-00"
+                      value={alunoEditForm.aluno_cpf || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, aluno_cpf: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Gênero / Sexo</label>
+                    <select
+                      value={alunoEditForm.aluno_sexo || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, aluno_sexo: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                      <option value="Outro">Outro / Prefere não informar</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Turma Matriculada / Alocada</label>
+                    <select
+                      value={alunoEditForm.turma_id || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, turma_id: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    >
+                      <option value="">Sem Turma (Geral / Fila)</option>
+                      {turmasDb.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.nome} ({t.turno}) - {t.capacidade} vaga(s)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* DADOS DO RESPONSÁVEL */}
+              <div className="pt-2 border-t border-gray-100">
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3">
+                  2. Dados do Responsável Legal
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Nome do Responsável *</label>
+                    <input
+                      type="text"
+                      required
+                      value={alunoEditForm.resp_nome || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, resp_nome: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Parentesco</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Mãe, Pai, Avó, Tutor"
+                      value={alunoEditForm.resp_parentesco || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, resp_parentesco: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">CPF do Responsável</label>
+                    <input
+                      type="text"
+                      placeholder="000.000.000-00"
+                      value={alunoEditForm.resp_cpf || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, resp_cpf: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">E-mail do Responsável</label>
+                    <input
+                      type="email"
+                      value={alunoEditForm.resp_email || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, resp_email: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Telefone / WhatsApp</label>
+                    <input
+                      type="tel"
+                      value={alunoEditForm.resp_telefone || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, resp_telefone: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Bairro</label>
+                    <input
+                      type="text"
+                      value={alunoEditForm.resp_bairro || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, resp_bairro: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Endereço Residencial</label>
+                    <input
+                      type="text"
+                      value={alunoEditForm.resp_endereco || ''}
+                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, resp_endereco: e.target.value })}
+                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setAlunoParaEditar(null)}
+                  className="px-4 py-2.5 text-xs font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editandoAluno}
+                  className="px-6 py-2.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {editandoAluno ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" /> Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={14} /> Salvar Dados do Aluno
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

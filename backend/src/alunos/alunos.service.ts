@@ -207,6 +207,63 @@ export class AlunosService {
     return { success: true, message: 'Aluno removido com sucesso do banco de dados.' };
   }
 
+  async update(id: string, updateDto: any) {
+    if (!id) {
+      throw new BadRequestException('ID do aluno é obrigatório.');
+    }
+
+    let alunoAtualizado: any = null;
+    if (this.databaseService) {
+      alunoAtualizado = await this.databaseService.updateAluno(id, updateDto);
+    }
+
+    const supabase = this.supabaseService.getClient();
+    try {
+      // 1. Atualiza na tabela alunos
+      const payloadAlunos: any = {};
+      if (updateDto.aluno_nome !== undefined) payloadAlunos.aluno_nome = updateDto.aluno_nome.trim();
+      if (updateDto.aluno_nascimento !== undefined) payloadAlunos.aluno_nascimento = updateDto.aluno_nascimento;
+      if (updateDto.aluno_cpf !== undefined) payloadAlunos.aluno_cpf = updateDto.aluno_cpf;
+      if (updateDto.aluno_sexo !== undefined) payloadAlunos.aluno_sexo = updateDto.aluno_sexo;
+      if (updateDto.turma_id !== undefined) payloadAlunos.turma_id = updateDto.turma_id;
+      if (updateDto.resp_nome !== undefined) payloadAlunos.resp_nome = updateDto.resp_nome.trim();
+      if (updateDto.resp_cpf !== undefined) payloadAlunos.resp_cpf = updateDto.resp_cpf;
+      if (updateDto.resp_email !== undefined) payloadAlunos.resp_email = updateDto.resp_email.trim();
+      if (updateDto.resp_telefone !== undefined) payloadAlunos.resp_telefone = updateDto.resp_telefone;
+      if (updateDto.resp_endereco !== undefined) payloadAlunos.resp_endereco = updateDto.resp_endereco;
+      if (updateDto.resp_bairro !== undefined) payloadAlunos.resp_bairro = updateDto.resp_bairro;
+      if (updateDto.resp_cep !== undefined) payloadAlunos.resp_cep = updateDto.resp_cep;
+      if (updateDto.resp_parentesco !== undefined) payloadAlunos.resp_parentesco = updateDto.resp_parentesco;
+
+      if (Object.keys(payloadAlunos).length > 0) {
+        await supabase.from('alunos').update(payloadAlunos).eq('id', id);
+      }
+
+      // 2. Atualiza na tabela lista_espera (se o aluno estiver na fila)
+      const payloadFila: any = {
+        ...payloadAlunos,
+        nome_aluno: payloadAlunos.aluno_nome,
+        nome_responsavel: payloadAlunos.resp_nome,
+        telefone_responsavel: payloadAlunos.resp_telefone,
+        email_responsavel: payloadAlunos.resp_email,
+        data_nascimento: payloadAlunos.aluno_nascimento,
+      };
+      // Limpa chaves undefined
+      Object.keys(payloadFila).forEach((k) => payloadFila[k] === undefined && delete payloadFila[k]);
+      if (Object.keys(payloadFila).length > 0) {
+        await supabase.from('lista_espera').update(payloadFila).eq('id', id);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Aviso ao atualizar aluno no Supabase: ${err?.message}`);
+    }
+
+    return {
+      success: true,
+      message: 'Dados cadastrais atualizados com sucesso.',
+      aluno: alunoAtualizado || updateDto,
+    };
+  }
+
   async updateStatus(id: string, novoStatus: string, turma_id: string) {
     if (this.databaseService) {
       const alunoAtual = (await this.databaseService.getAlunos()).find((a) => a.id === id);

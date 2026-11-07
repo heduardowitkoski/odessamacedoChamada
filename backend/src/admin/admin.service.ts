@@ -79,6 +79,41 @@ export class AdminService {
     };
   }
 
+  async atualizarAdmin(id: string, dto: { nome?: string; email?: string }) {
+    if (!id) {
+      throw new BadRequestException('ID do usuário é obrigatório.');
+    }
+
+    if (this.databaseService) {
+      const adm = await this.databaseService.updateAdmin(id, dto);
+      if (!adm) throw new BadRequestException('Administrador não encontrado.');
+      return { success: true, message: 'Dados atualizados com sucesso.', admin: adm };
+    }
+
+    const supabase = this.supabaseService.getClient();
+    const updatePayload: any = {};
+    if (dto.email) updatePayload.email = dto.email.trim();
+    if (dto.nome) {
+      updatePayload.user_metadata = { nome: dto.nome.trim(), role: 'admin' };
+    }
+
+    const { data, error } = await supabase.auth.admin.updateUserById(id, updatePayload);
+    if (error) {
+      throw new BadRequestException('Não foi possível atualizar o administrador: ' + error.message);
+    }
+
+    return {
+      success: true,
+      message: 'Administrador atualizado com sucesso.',
+      admin: {
+        id: data.user.id,
+        email: data.user.email,
+        nome: data.user.user_metadata?.nome,
+        role: 'admin',
+      },
+    };
+  }
+
   async removerAdmin(id: string) {
     if (!id) {
       throw new BadRequestException('ID do usuário é obrigatório.');

@@ -713,6 +713,40 @@ export class DatabaseService implements OnModuleInit {
     };
   }
 
+  async updateAluno(id: string, dto: Partial<Aluno>): Promise<Aluno | null> {
+    let aluno = this.memoryDb.alunos.find((a) => a.id === id);
+    let itemFila = this.memoryDb.lista_espera.find((l) => l.id === id);
+
+    if (!aluno && !itemFila) return null;
+
+    if (aluno) {
+      const turmaAntigaId = aluno.turma_id;
+      const novaTurmaId = dto.turma_id;
+
+      if (novaTurmaId && novaTurmaId !== turmaAntigaId && aluno.status === 'Ativo') {
+        const turmaAntiga = this.memoryDb.turmas.find((t) => t.id === turmaAntigaId);
+        if (turmaAntiga) turmaAntiga.capacidade += 1;
+        const novaTurma = this.memoryDb.turmas.find((t) => t.id === novaTurmaId);
+        if (novaTurma && novaTurma.capacidade > 0) novaTurma.capacidade -= 1;
+      }
+
+      Object.assign(aluno, dto);
+      if (aluno.turma_id) {
+        aluno.turmas = this.memoryDb.turmas.find((t) => t.id === aluno.turma_id);
+      }
+    }
+
+    if (itemFila) {
+      Object.assign(itemFila, dto);
+      if (itemFila.turma_id) {
+        itemFila.turmas = this.memoryDb.turmas.find((t) => t.id === itemFila.turma_id);
+      }
+    }
+
+    this.persistToDiskAsync();
+    return aluno || (itemFila as any);
+  }
+
   async removeAluno(id: string): Promise<{ success: boolean; message: string }> {
     const index = this.memoryDb.alunos.findIndex((a) => a.id === id);
     let removido: Aluno | undefined;
@@ -1108,6 +1142,16 @@ export class DatabaseService implements OnModuleInit {
     this.memoryDb.admins.unshift(novo);
     this.persistToDiskAsync();
     return novo;
+  }
+
+  async updateAdmin(id: string, dto: { nome?: string; email?: string }): Promise<AdminUser | null> {
+    if (!this.memoryDb.admins) this.memoryDb.admins = this.getDefaultAdmins();
+    const adm = this.memoryDb.admins.find((a) => a.id === id);
+    if (!adm) return null;
+    if (dto.nome !== undefined) adm.nome = dto.nome.trim();
+    if (dto.email !== undefined) adm.email = dto.email.trim().toLowerCase();
+    this.persistToDiskAsync();
+    return adm;
   }
 
   async removeAdmin(id: string): Promise<boolean> {

@@ -17,10 +17,11 @@ import {
   CheckCircle,
   Copy,
   Menu,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 import MuralBoard from '../../components/mural/MuralBoard';
-import { getCurrentUser, clearUserSession } from '../../lib/auth';
+import { getCurrentUser, saveUserSession, clearUserSession, type UserProfile } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { getApiBase } from '../../lib/api';
 import StudentHistoryModal from '../../components/ui/StudentHistoryModal';
@@ -37,7 +38,7 @@ interface AlunoChamada {
 }
 
 export default function ProfessorPortal() {
-  const [activeTab, setActiveTab] = useState<'frequencia' | 'mural' | 'alunos' | 'fila'>('frequencia');
+  const [activeTab, setActiveTab] = useState<'frequencia' | 'mural' | 'alunos' | 'fila' | 'configuracoes'>('frequencia');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [turmas, setTurmas] = useState<any[]>([]);
   const [selectedTurmaId, setSelectedTurmaId] = useState<string>('');
@@ -56,7 +57,41 @@ export default function ProfessorPortal() {
   const [resultadoChamada, setResultadoChamada] = useState<{ aluno: any; action_link: string | null; email_enviado: boolean } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const currentUser = getCurrentUser();
+  // Estados para Meus Dados / Configurações do Professor
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getCurrentUser());
+  const [profForm, setProfForm] = useState({
+    name: currentUser?.name || 'Prof. Henrique Storniolo Rossal',
+    email: currentUser?.email || 'professor@odessamacedo.com.br',
+    cargo: currentUser?.cargo || 'Professor de Artes Visuais e Desenho',
+  });
+  const [salvandoProf, setSalvandoProf] = useState(false);
+  const [sucessoProf, setSucessoProf] = useState(false);
+
+  const handleSalvarMeusDados = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSalvandoProf(true);
+    try {
+      const atual = getCurrentUser();
+      const updated: UserProfile = {
+        id: atual?.id || 'usr-prof-henrique',
+        role: 'professor',
+        name: profForm.name.trim(),
+        email: profForm.email.trim(),
+        cargo: profForm.cargo.trim(),
+        avatarUrl: atual?.avatarUrl,
+      };
+      saveUserSession(updated);
+      setCurrentUser(updated);
+      setSucessoProf(true);
+      setTimeout(() => setSucessoProf(false), 4000);
+      alert('Seus dados foram atualizados com sucesso!');
+    } catch {
+      alert('Erro ao salvar seus dados.');
+    } finally {
+      setSalvandoProf(false);
+    }
+  };
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -432,6 +467,21 @@ export default function ProfessorPortal() {
             )}
           </button>
 
+          <button
+            onClick={() => {
+              setActiveTab('configuracoes');
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'configuracoes'
+                ? 'bg-blue-600 text-white'
+                : 'text-amber-200/80 hover:bg-amber-900/40 hover:text-white'
+            }`}
+          >
+            <Settings size={16} />
+            <span>Configurações (Meus Dados)</span>
+          </button>
+
           <p className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/60">
             Atalhos Externos
           </p>
@@ -455,15 +505,22 @@ export default function ProfessorPortal() {
 
         <div className="p-4 border-t border-amber-900/40">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+            <button
+              onClick={() => {
+                setActiveTab('configuracoes');
+                setSidebarOpen(false);
+              }}
+              className="flex items-center gap-2.5 min-w-0 text-left group cursor-pointer"
+              title="Editar meus dados"
+            >
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 group-hover:bg-blue-500 transition-colors">
                 {currentUser?.name ? currentUser.name.charAt(0) : 'P'}
               </div>
               <div className="min-w-0">
-                <p className="text-white text-xs font-semibold truncate">{currentUser?.name || 'Professor'}</p>
+                <p className="text-white text-xs font-semibold truncate group-hover:text-blue-300 transition-colors">{currentUser?.name || 'Professor'}</p>
                 <p className="text-amber-400/70 text-[10px] truncate">{currentUser?.email || 'Professor'}</p>
               </div>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="p-1.5 text-amber-400/70 hover:text-red-400 hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
@@ -529,6 +586,18 @@ export default function ProfessorPortal() {
                 {filaEspera.length}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('configuracoes')}
+            className={`py-3.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'configuracoes'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Settings size={16} />
+            Configurações
           </button>
         </div>
       </div>
@@ -864,6 +933,97 @@ export default function ProfessorPortal() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ABA 5: CONFIGURAÇÕES - EDITAR MEUS DADOS */}
+        {activeTab === 'configuracoes' && (
+          <div className="max-w-3xl space-y-6">
+            <div className="bg-white rounded-3xl border border-blue-100 shadow-sm p-6 sm:p-8">
+              <div className="flex items-center gap-4 pb-6 border-b border-gray-100 mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                  {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'P'}
+                </div>
+                <div>
+                  <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300]">
+                    Configurações do Professor · Meus Dados
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Atualize suas informações pessoais e perfil docente no sistema
+                  </p>
+                </div>
+              </div>
+
+              {sucessoProf && (
+                <div className="mb-6 p-4 rounded-2xl bg-green-50 border border-green-200 flex items-center gap-3 text-green-800 text-xs font-semibold">
+                  <CheckCircle className="text-green-600 shrink-0" size={18} />
+                  <span>Seus dados foram atualizados com sucesso e salvos para esta sessão.</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSalvarMeusDados} className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      Nome Completo do Docente *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={profForm.name}
+                      onChange={(e) => setProfForm({ ...profForm, name: e.target.value })}
+                      className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      E-mail Institucional *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={profForm.email}
+                      onChange={(e) => setProfForm({ ...profForm, email: e.target.value })}
+                      className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Disciplina / Especialidade / Cargo
+                  </label>
+                  <input
+                    type="text"
+                    value={profForm.cargo}
+                    onChange={(e) => setProfForm({ ...profForm, cargo: e.target.value })}
+                    placeholder="Ex: Professor de Artes Visuais e Desenho"
+                    className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                </div>
+
+                <div className="pt-4 flex items-center justify-end gap-3 border-t border-gray-100">
+                  <button
+                    type="submit"
+                    disabled={salvandoProf}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {salvandoProf ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin" />
+                        <span>Salvando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save size={15} />
+                        <span>Salvar Meus Dados</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </main>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { getCurrentUser, clearUserSession } from '../../lib/auth';
+import { getCurrentUser, clearUserSession, saveUserSession, type UserProfile } from '../../lib/auth';
 import MuralBoard from '../../components/mural/MuralBoard';
 import { getApiBase } from '../../lib/api';
 import {
@@ -21,7 +21,9 @@ import {
   Sparkles,
   CheckSquare,
   Menu,
-  X
+  X,
+  Settings,
+  Save
 } from 'lucide-react';
 
 const API_BASE = getApiBase();
@@ -61,8 +63,17 @@ export default function ResponsiblePortal() {
   const [alunos, setAlunos] = useState<AlunoResponsavel[]>([]);
   const [selectedAlunoId, setSelectedAlunoId] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [activeTab, setActiveTab] = useState<'frequencia' | 'mural'>('frequencia');
+  const [activeTab, setActiveTab] = useState<'frequencia' | 'mural' | 'configuracoes'>('frequencia');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [salvandoResp, setSalvandoResp] = useState(false);
+  const [sucessoResp, setSucessoResp] = useState(false);
+  const [respForm, setRespForm] = useState({
+    nome: '',
+    email: '',
+    telefone: '',
+    endereco: '',
+    bairro: '',
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -152,6 +163,87 @@ export default function ResponsiblePortal() {
   };
 
   const alunoSelecionado = alunos.find((a) => a.id === selectedAlunoId) || alunos[0];
+
+  useEffect(() => {
+    if (alunoSelecionado) {
+      setRespForm({
+        nome: alunoSelecionado.resp_nome || '',
+        email: alunoSelecionado.resp_email || userEmail || '',
+        telefone: alunoSelecionado.resp_telefone || '',
+        endereco: (alunoSelecionado as any).resp_endereco || '',
+        bairro: (alunoSelecionado as any).resp_bairro || '',
+      });
+    }
+  }, [alunoSelecionado, userEmail]);
+
+  const handleSalvarMeusDados = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSalvandoResp(true);
+    try {
+      if (alunoSelecionado?.id) {
+        // Atualiza os dados do responsável vinculados ao aluno no backend
+        await fetch(`${API_BASE}/alunos/${alunoSelecionado.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resp_nome: respForm.nome.trim(),
+            resp_email: respForm.email.trim(),
+            resp_telefone: respForm.telefone.trim(),
+            resp_endereco: respForm.endereco.trim(),
+            resp_bairro: respForm.bairro.trim(),
+          }),
+        });
+
+        // Atualização direta no Supabase
+        try {
+          await supabase.from('alunos').update({
+            resp_nome: respForm.nome.trim(),
+            resp_email: respForm.email.trim(),
+            resp_telefone: respForm.telefone.trim(),
+            resp_endereco: respForm.endereco.trim(),
+            resp_bairro: respForm.bairro.trim(),
+          }).eq('id', alunoSelecionado.id);
+        } catch {}
+      }
+
+      // Atualiza a sessão local
+      const currentUser = getCurrentUser();
+      const updatedUser: UserProfile = {
+        id: currentUser?.id || 'usr-resp-1',
+        role: 'responsavel',
+        name: `${respForm.nome.trim()} (Responsável)`,
+        email: respForm.email.trim(),
+        cargo: 'Mãe / Responsável Legal',
+        alunoId: alunoSelecionado?.id || currentUser?.alunoId,
+        alunoNome: alunoSelecionado?.aluno_nome || currentUser?.alunoNome,
+        turmaId: alunoSelecionado?.turma?.id || currentUser?.turmaId,
+        turmaNome: alunoSelecionado?.turma?.nome || currentUser?.turmaNome,
+      };
+      saveUserSession(updatedUser);
+      setUserEmail(respForm.email.trim());
+
+      setAlunos((prev) =>
+        prev.map((a) =>
+          a.id === alunoSelecionado?.id
+            ? {
+                ...a,
+                resp_nome: respForm.nome.trim(),
+                resp_email: respForm.email.trim(),
+                resp_telefone: respForm.telefone.trim(),
+              }
+            : a
+        )
+      );
+
+      setSucessoResp(true);
+      setTimeout(() => setSucessoResp(false), 4000);
+      alert('Seus dados foram atualizados com sucesso!');
+    } catch {
+      alert('Erro ao atualizar seus dados. Tente novamente.');
+    } finally {
+      setSalvandoResp(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif] text-[#1C1300]">
@@ -293,6 +385,21 @@ export default function ResponsiblePortal() {
             <span>Mural de Obras & Trabalhos</span>
           </button>
 
+          <button
+            onClick={() => {
+              setActiveTab('configuracoes');
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'configuracoes'
+                ? 'bg-amber-500 text-white'
+                : 'text-amber-200/80 hover:bg-amber-900/40 hover:text-white'
+            }`}
+          >
+            <Settings size={16} />
+            <span>Configurações (Meus Dados)</span>
+          </button>
+
           <p className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/60">
             Atalhos Externos
           </p>
@@ -316,15 +423,22 @@ export default function ResponsiblePortal() {
 
         <div className="p-4 border-t border-amber-900/40">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+            <button
+              onClick={() => {
+                setActiveTab('configuracoes');
+                setSidebarOpen(false);
+              }}
+              className="flex items-center gap-2.5 min-w-0 text-left group cursor-pointer"
+              title="Editar meus dados"
+            >
+              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold shrink-0 group-hover:bg-amber-400 transition-colors">
                 {userEmail ? userEmail.charAt(0).toUpperCase() : 'R'}
               </div>
               <div className="min-w-0">
-                <p className="text-white text-xs font-semibold truncate">{userEmail || 'Responsável'}</p>
+                <p className="text-white text-xs font-semibold truncate group-hover:text-amber-300 transition-colors">{respForm.nome || userEmail || 'Responsável'}</p>
                 <p className="text-amber-400/70 text-[10px]">Responsável Legal</p>
               </div>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="p-1.5 text-amber-400/70 hover:text-red-400 hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
@@ -439,6 +553,17 @@ export default function ResponsiblePortal() {
                 }`}
               >
                 <Sparkles size={14} /> Mural de Obras & Trabalhos
+              </button>
+
+              <button
+                onClick={() => setActiveTab('configuracoes')}
+                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                  activeTab === 'configuracoes'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Settings size={14} /> Configurações
               </button>
             </div>
 
@@ -626,6 +751,123 @@ export default function ResponsiblePortal() {
             {activeTab === 'mural' && (
               <div className="bg-white rounded-3xl border border-amber-100 p-6 shadow-sm">
                 <MuralBoard embedded={true} allowPublish={false} fixedTurmaId={alunoSelecionado?.turma?.id} />
+              </div>
+            )}
+
+            {/* ABA 3: CONFIGURAÇÕES - EDITAR MEUS DADOS */}
+            {activeTab === 'configuracoes' && (
+              <div className="max-w-3xl space-y-6">
+                <div className="bg-white rounded-3xl border border-amber-100 shadow-sm p-6 sm:p-8">
+                  <div className="flex items-center gap-4 pb-6 border-b border-gray-100 mb-6">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                      {respForm.nome ? respForm.nome.charAt(0).toUpperCase() : 'R'}
+                    </div>
+                    <div>
+                      <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300]">
+                        Editar Meus Dados (Responsável)
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Mantenha suas informações de contato e endereço atualizadas para receber comunicados e notificações da escola
+                      </p>
+                    </div>
+                  </div>
+
+                  {sucessoResp && (
+                    <div className="mb-6 p-4 rounded-2xl bg-green-50 border border-green-200 flex items-center gap-3 text-green-800 text-xs font-semibold">
+                      <CheckCircle className="text-green-600 shrink-0" size={18} />
+                      <span>Seus dados cadastrais foram atualizados com sucesso no sistema.</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSalvarMeusDados} className="space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                          Nome Completo do Responsável *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={respForm.nome}
+                          onChange={(e) => setRespForm({ ...respForm, nome: e.target.value })}
+                          className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                          E-mail para Acesso e Notificações *
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={respForm.email}
+                          onChange={(e) => setRespForm({ ...respForm, email: e.target.value })}
+                          className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                          Telefone / WhatsApp de Contato
+                        </label>
+                        <input
+                          type="tel"
+                          value={respForm.telefone}
+                          onChange={(e) => setRespForm({ ...respForm, telefone: e.target.value })}
+                          placeholder="(53) 99999-0000"
+                          className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                          Bairro
+                        </label>
+                        <input
+                          type="text"
+                          value={respForm.bairro}
+                          onChange={(e) => setRespForm({ ...respForm, bairro: e.target.value })}
+                          placeholder="Ex: Centro"
+                          className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                          Endereço Residencial Completo
+                        </label>
+                        <input
+                          type="text"
+                          value={respForm.endereco}
+                          onChange={(e) => setRespForm({ ...respForm, endereco: e.target.value })}
+                          placeholder="Rua, número, complemento..."
+                          className="w-full text-sm bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-4 flex items-center justify-end gap-3 border-t border-gray-100">
+                      <button
+                        type="submit"
+                        disabled={salvandoResp}
+                        className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {salvandoResp ? (
+                          <>
+                            <Loader2 size={15} className="animate-spin" />
+                            <span>Salvando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save size={15} />
+                            <span>Salvar Meus Dados</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             )}
           </div>

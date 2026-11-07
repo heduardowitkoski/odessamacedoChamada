@@ -15,6 +15,11 @@ export class AdminController {
     return this.adminService.criarAdmin(dto);
   }
 
+  @Patch('usuarios/:id')
+  async atualizarAdmin(@Param('id') id: string, @Body() dto: { nome?: string; email?: string }) {
+    return this.adminService.atualizarAdmin(id, dto);
+  }
+
   @Delete('usuarios/:id')
   async removerAdmin(@Param('id') id: string) {
     return this.adminService.removerAdmin(id);
