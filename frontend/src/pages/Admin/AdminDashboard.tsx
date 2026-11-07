@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2, Menu, GraduationCap
+  Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2, Menu, GraduationCap, History
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Avatar } from "../../components/ui/Avatar";
@@ -14,7 +14,10 @@ import StudentHistoryModal from "../../components/ui/StudentHistoryModal";
 import {
   getApiBase,
   fetchAlunosPorTurmaComStats,
-  type TurmaAlunosResumo
+  type TurmaAlunosResumo,
+  fetchLogs,
+  exportarLogsCSV,
+  type AuditLog,
 } from "../../lib/api";
 function extractAgeRange(nome: string): { idade_minima: number; idade_maxima: number } {
   if (!nome) return { idade_minima: 0, idade_maxima: 120 };
@@ -117,7 +120,45 @@ export default function AdminDashboard() {
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
   const [sucessoPerfil, setSucessoPerfil] = useState(false);
 
+  // Estados para Auditoria de Logs
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [filtroLogCategoria, setFiltroLogCategoria] = useState<string>('todos');
+  const [filtroLogBusca, setFiltroLogBusca] = useState<string>('');
+  const [exportandoLogs, setExportandoLogs] = useState(false);
+
   const navigate = useNavigate();
+
+  const carregarLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const data = await fetchLogs();
+      setLogs(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.warn('Erro ao carregar logs:', e);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const handleExportarLogs = async () => {
+    setExportandoLogs(true);
+    try {
+      const csv = await exportarLogsCSV();
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `auditoria_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      alert('Erro ao exportar logs: ' + (err.message || 'Tente novamente'));
+    } finally {
+      setExportandoLogs(false);
+    }
+  };
 
   const fetchAlunos = async () => {
     try {
@@ -246,6 +287,7 @@ export default function AdminDashboard() {
     fetchAlertasFaltas();
     fetchAdmins();
     fetchProfessores();
+    carregarLogs();
   }, []);
 
   useEffect(() => {
@@ -959,6 +1001,7 @@ export default function AdminDashboard() {
     { icon: <GraduationCap size={17} />, label: "Professores", badge: professores.length },
     { icon: <Sparkles size={17} />, label: "Mural" },
     { icon: <ShieldCheck size={17} />, label: "Administradores", badge: admins.length },
+    { icon: <History size={17} />, label: "Auditoria", badge: logs.length },
     { icon: <BarChart2 size={17} />, label: "Relatórios" },
     { icon: <Settings size={17} />, label: "Configurações" },
   ];
@@ -1104,6 +1147,8 @@ export default function AdminDashboard() {
                 ? "Mural de Atividades e Obras"
                 : activeMenu === "Administradores"
                 ? "Gestão de Administradores"
+                : activeMenu === "Auditoria"
+                ? "Auditoria e Histórico de Ações do Sistema"
                 : activeMenu === "Relatórios"
                 ? "Relatórios e Indicadores"
                 : activeMenu === "Configurações"
@@ -2124,6 +2169,209 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          ) : activeMenu === "Auditoria" ? (
+            /* --- MÓDULO DE AUDITORIA E LOGS DO SISTEMA --- */
+            <div className="space-y-6">
+              {/* Header do Módulo de Auditoria */}
+              <div className="bg-white rounded-3xl border border-amber-100 shadow-sm p-6 sm:p-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                      <History size={24} />
+                    </div>
+                    <div>
+                      <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300]">
+                        Registro de Auditoria de Ações
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Histórico cronológico de operações críticas: movimentação de fila, chamadas diárias, alterações cadastrais e gestão de usuários.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={carregarLogs}
+                      disabled={loadingLogs}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+                      title="Recarregar logs"
+                    >
+                      {loadingLogs ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
+                      Atualizar
+                    </button>
+                    <button
+                      onClick={handleExportarLogs}
+                      disabled={exportandoLogs || logs.length === 0}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1C1300] hover:bg-black text-amber-400 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      {exportandoLogs ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      Exportar Logs (CSV)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filtros e Barra de Busca */}
+                <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                  {/* Categorias */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[
+                      { id: 'todos', label: 'Todos os Logs' },
+                      { id: 'turma', label: 'Turmas' },
+                      { id: 'aluno', label: 'Alunos' },
+                      { id: 'fila', label: 'Fila de Espera' },
+                      { id: 'frequencia', label: 'Chamadas / Frequência' },
+                      { id: 'professor', label: 'Professores' },
+                      { id: 'admin', label: 'Administradores' },
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setFiltroLogCategoria(cat.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          filtroLogCategoria === cat.id
+                            ? 'bg-amber-500 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Busca textual */}
+                  <div className="relative min-w-[240px]">
+                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por ação, autor ou detalhe..."
+                      value={filtroLogBusca}
+                      onChange={(e) => setFiltroLogBusca(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabela de Logs */}
+              <div className="bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-[#FAF7F2] text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                        <th className="py-3.5 px-6">Data / Horário</th>
+                        <th className="py-3.5 px-6">Ação Realizada</th>
+                        <th className="py-3.5 px-6">Categoria</th>
+                        <th className="py-3.5 px-6">Detalhes</th>
+                        <th className="py-3.5 px-6">Quem Realizou</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-xs">
+                      {loadingLogs ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-gray-400">
+                            <Loader2 size={24} className="animate-spin mx-auto text-amber-500 mb-2" />
+                            Carregando histórico de auditoria...
+                          </td>
+                        </tr>
+                      ) : (() => {
+                        const logsFiltrados = logs.filter((l) => {
+                          if (filtroLogCategoria !== 'todos' && (l.categoria || 'sistema') !== filtroLogCategoria) {
+                            return false;
+                          }
+                          if (filtroLogBusca.trim()) {
+                            const termo = filtroLogBusca.toLowerCase();
+                            const matchAcao = (l.acao || '').toLowerCase().includes(termo);
+                            const matchDet = (l.detalhes || '').toLowerCase().includes(termo);
+                            const matchAutor = (l.autor_nome || '').toLowerCase().includes(termo);
+                            const matchEmail = (l.autor_email || '').toLowerCase().includes(termo);
+                            if (!matchAcao && !matchDet && !matchAutor && !matchEmail) return false;
+                          }
+                          return true;
+                        });
+
+                        if (logsFiltrados.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="py-12 text-center text-gray-400">
+                                <History size={32} className="mx-auto text-gray-300 mb-2" />
+                                Nenhum registro de auditoria encontrado com os filtros selecionados.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return logsFiltrados.map((log) => {
+                          const dateObj = new Date(log.created_at);
+                          const dateFormatted = !isNaN(dateObj.getTime())
+                            ? dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                            : '-';
+                          const timeFormatted = !isNaN(dateObj.getTime())
+                            ? dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                            : '';
+
+                          const catBadgeColors: Record<string, string> = {
+                            turma: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                            aluno: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                            fila: 'bg-amber-50 text-amber-700 border-amber-200',
+                            frequencia: 'bg-blue-50 text-blue-700 border-blue-200',
+                            professor: 'bg-purple-50 text-purple-700 border-purple-200',
+                            admin: 'bg-rose-50 text-rose-700 border-rose-200',
+                            sistema: 'bg-gray-100 text-gray-700 border-gray-200',
+                          };
+
+                          return (
+                            <tr key={log.id} className="hover:bg-amber-50/40 transition-colors">
+                              <td className="py-3.5 px-6 whitespace-nowrap">
+                                <div className="font-semibold text-gray-900">{dateFormatted}</div>
+                                <div className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
+                                  <Clock size={11} />
+                                  {timeFormatted}
+                                </div>
+                              </td>
+
+                              <td className="py-3.5 px-6 font-bold text-gray-800">
+                                {log.acao}
+                              </td>
+
+                              <td className="py-3.5 px-6 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${catBadgeColors[log.categoria || 'sistema'] || catBadgeColors.sistema}`}>
+                                  {log.categoria || 'sistema'}
+                                </span>
+                              </td>
+
+                              <td className="py-3.5 px-6 text-gray-600 max-w-md break-words">
+                                {log.detalhes}
+                              </td>
+
+                              <td className="py-3.5 px-6 whitespace-nowrap">
+                                <div className="font-medium text-gray-800">
+                                  {log.autor_nome || 'Sistema Automático'}
+                                </div>
+                                {log.autor_email && (
+                                  <div className="text-[11px] text-gray-400">
+                                    {log.autor_email}
+                                  </div>
+                                )}
+                                {log.autor_role && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-gray-100 text-gray-500 uppercase">
+                                    {log.autor_role}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer do Card com Total */}
+                <div className="px-6 py-4 border-t border-gray-100 bg-[#FAF7F2] flex items-center justify-between text-xs text-gray-500 font-medium">
+                  <span>Total de registros catalogados: <strong>{logs.length}</strong></span>
+                  <span className="text-[11px] text-gray-400">Retenção segura em banco de dados</span>
+                </div>
               </div>
             </div>
           ) : (

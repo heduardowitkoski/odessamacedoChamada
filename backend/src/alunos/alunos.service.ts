@@ -163,8 +163,16 @@ export class AlunosService {
   }
 
   async remove(id: string) {
+    let alunoNomeRemovido = id;
     if (this.databaseService) {
+      const aluno = (await this.databaseService.getAlunos()).find((a) => a.id === id);
+      if (aluno) alunoNomeRemovido = aluno.aluno_nome;
       await this.databaseService.removeAluno(id);
+      await this.databaseService.addLog({
+        acao: 'Exclusão de Aluno',
+        categoria: 'aluno',
+        detalhes: `Aluno "${alunoNomeRemovido}" (ID: ${id}) foi excluído do sistema.`,
+      });
     }
 
     const supabase = this.supabaseService.getClient();
@@ -215,6 +223,11 @@ export class AlunosService {
     let alunoAtualizado: any = null;
     if (this.databaseService) {
       alunoAtualizado = await this.databaseService.updateAluno(id, updateDto);
+      await this.databaseService.addLog({
+        acao: 'Alteração de Dados do Aluno',
+        categoria: 'aluno',
+        detalhes: `Dados cadastrais do aluno "${alunoAtualizado?.aluno_nome || id}" foram alterados.`,
+      });
     }
 
     const supabase = this.supabaseService.getClient();
@@ -390,6 +403,14 @@ export class AlunosService {
           }
         })();
       }
+
+      await this.databaseService.addLog({
+        acao: estavaNaFila && novoStatus === 'Ativo' ? 'Chamada da Fila de Espera' : 'Alteração de Status do Aluno',
+        categoria: estavaNaFila && novoStatus === 'Ativo' ? 'fila' : 'aluno',
+        detalhes: estavaNaFila && novoStatus === 'Ativo'
+          ? `Aluno "${aluno?.aluno_nome}" foi chamado da fila de espera e matriculado na turma "${turma.nome}".`
+          : `Status do aluno "${aluno?.aluno_nome}" foi alterado para "${novoStatus}" na turma "${turma.nome}".`,
+      });
 
       return {
         aluno,

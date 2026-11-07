@@ -62,7 +62,13 @@ export class TurmasService {
     idade_maxima?: number;
   }) {
     if (this.databaseService) {
-      return this.databaseService.createTurma(createTurmaDto);
+      const created = await this.databaseService.createTurma(createTurmaDto);
+      await this.databaseService.addLog({
+        acao: 'Criação de Turma',
+        categoria: 'turma',
+        detalhes: `Turma "${created.nome}" (Turno: ${created.turno}, Capacidade: ${created.capacidade}) foi criada.`,
+      });
+      return created;
     }
 
     const fallback = extractAgeRange(createTurmaDto.nome || '');
@@ -105,6 +111,11 @@ export class TurmasService {
       if (!atualizada) {
         throw new BadRequestException('Turma não encontrada para atualização.');
       }
+      await this.databaseService.addLog({
+        acao: 'Alteração de Dados da Turma',
+        categoria: 'turma',
+        detalhes: `Turma "${atualizada.nome}" foi modificada: ${Object.entries(dto).map(([k, v]) => `${k}=${v}`).join(', ')}.`,
+      });
       return atualizada;
     }
 
@@ -124,10 +135,16 @@ export class TurmasService {
 
   async remove(id: string) {
     if (this.databaseService) {
+      const turma = await this.databaseService.getTurmaById(id);
       const res = await this.databaseService.removeTurma(id);
       if (!res.success) {
         throw new BadRequestException(res.message);
       }
+      await this.databaseService.addLog({
+        acao: 'Exclusão de Turma',
+        categoria: 'turma',
+        detalhes: `Turma "${turma?.nome || id}" foi excluída do sistema.`,
+      });
       return res;
     }
 

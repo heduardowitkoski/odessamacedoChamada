@@ -52,7 +52,13 @@ export class AdminService {
     }
 
     if (this.databaseService) {
-      return this.databaseService.createAdmin(dto);
+      const res = await this.databaseService.createAdmin(dto);
+      await this.databaseService.addLog({
+        acao: 'Criação de Administrador',
+        categoria: 'admin',
+        detalhes: `Administrador "${dto.nome || dto.email}" (${dto.email}) foi cadastrado no sistema.`,
+      });
+      return res;
     }
 
     const supabase = this.supabaseService.getClient();
@@ -87,6 +93,11 @@ export class AdminService {
     if (this.databaseService) {
       const adm = await this.databaseService.updateAdmin(id, dto);
       if (!adm) throw new BadRequestException('Administrador não encontrado.');
+      await this.databaseService.addLog({
+        acao: 'Alteração de Dados de Administrador',
+        categoria: 'admin',
+        detalhes: `Dados cadastrais do administrador "${adm.nome}" (${adm.email}) foram atualizados.`,
+      });
       return { success: true, message: 'Dados atualizados com sucesso.', admin: adm };
     }
 
@@ -121,6 +132,13 @@ export class AdminService {
 
     if (this.databaseService) {
       const ok = await this.databaseService.removeAdmin(id);
+      if (ok) {
+        await this.databaseService.addLog({
+          acao: 'Remoção de Administrador',
+          categoria: 'admin',
+          detalhes: `Administrador ID ${id} foi removido do sistema.`,
+        });
+      }
       return { success: ok, message: ok ? 'Administrador removido com sucesso.' : 'Administrador não encontrado.' };
     }
 
@@ -157,7 +175,13 @@ export class AdminService {
     }
 
     if (this.databaseService) {
-      return this.databaseService.createProfessor(dto);
+      const prof = await this.databaseService.createProfessor(dto);
+      await this.databaseService.addLog({
+        acao: 'Criação de Professor',
+        categoria: 'professor',
+        detalhes: `Professor "${prof.nome}" (${prof.email}) foi cadastrado com especialidade "${prof.especialidade || 'Geral'}".`,
+      });
+      return prof;
     }
 
     throw new BadRequestException('Serviço de banco de dados não disponível.');
@@ -180,6 +204,11 @@ export class AdminService {
     if (this.databaseService) {
       const prof = await this.databaseService.updateProfessor(id, dto);
       if (!prof) throw new BadRequestException('Professor não encontrado.');
+      await this.databaseService.addLog({
+        acao: 'Alteração de Dados do Professor',
+        categoria: 'professor',
+        detalhes: `Dados do professor "${prof.nome}" (${prof.email}) foram atualizados.`,
+      });
       return { success: true, message: 'Professor atualizado com sucesso.', professor: prof };
     }
 
@@ -193,9 +222,56 @@ export class AdminService {
 
     if (this.databaseService) {
       const ok = await this.databaseService.removeProfessor(id);
+      if (ok) {
+        await this.databaseService.addLog({
+          acao: 'Remoção de Professor',
+          categoria: 'professor',
+          detalhes: `Professor ID ${id} foi removido do sistema.`,
+        });
+      }
       return { success: ok, message: ok ? 'Professor removido com sucesso.' : 'Professor não encontrado.' };
     }
 
     return { success: true, message: 'Professor removido com sucesso.' };
+  }
+
+  // --- LOGS DE AUDITORIA ---
+  async listarLogs(limite?: number, categoria?: string) {
+    if (this.databaseService) {
+      return this.databaseService.getLogs(limite || 300, categoria);
+    }
+    return [];
+  }
+
+  async registrarLog(logData: {
+    acao: string;
+    detalhes: string;
+    autor_nome?: string;
+    autor_email?: string;
+    autor_role?: string;
+    categoria?: 'turma' | 'aluno' | 'fila' | 'frequencia' | 'professor' | 'admin' | 'sistema';
+    ip?: string;
+  }) {
+    if (this.databaseService) {
+      return this.databaseService.addLog(logData);
+    }
+    return null;
+  }
+
+  async exportarLogsCSV(): Promise<string> {
+    const logs = await this.listarLogs(5000);
+    const headers = ['ID', 'Data/Hora', 'Ação', 'Categoria', 'Detalhes', 'Autor', 'E-mail do Autor', 'Perfil'];
+    const rows = logs.map((l) => [
+      `"${l.id}"`,
+      `"${new Date(l.created_at).toLocaleString('pt-BR')}"`,
+      `"${(l.acao || '').replace(/"/g, '""')}"`,
+      `"${(l.categoria || 'sistema').toUpperCase()}"`,
+      `"${(l.detalhes || '').replace(/"/g, '""')}"`,
+      `"${(l.autor_nome || '').replace(/"/g, '""')}"`,
+      `"${(l.autor_email || '').replace(/"/g, '""')}"`,
+      `"${(l.autor_role || '').replace(/"/g, '""')}"`,
+    ]);
+
+    return [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
   }
 }

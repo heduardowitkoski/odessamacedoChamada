@@ -110,7 +110,17 @@ export class FrequenciasService {
     }
 
     if (this.databaseService) {
-      return this.databaseService.saveFrequencias(turma_id, dataStr, registros);
+      const res = await this.databaseService.saveFrequencias(turma_id, dataStr, registros);
+      const turma = await this.databaseService.getTurmaById(turma_id);
+      const presentesCount = registros.filter((r) => r.status === 'PRESENTE').length;
+      const faltasCount = registros.filter((r) => r.status === 'FALTA').length;
+      const justificadasCount = registros.filter((r) => r.status === 'JUSTIFICADA').length;
+      await this.databaseService.addLog({
+        acao: 'Lançamento de Chamada',
+        categoria: 'frequencia',
+        detalhes: `Chamada registrada para a turma "${turma?.nome || turma_id}" na data ${dataStr}. Presentes: ${presentesCount}, Faltas: ${faltasCount}, Justificadas: ${justificadasCount}. Total de alunos: ${registros.length}.`,
+      });
+      return res;
     }
 
     const supabase = this.supabaseService.getClient();

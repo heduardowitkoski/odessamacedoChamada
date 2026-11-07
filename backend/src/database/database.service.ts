@@ -103,6 +103,18 @@ export interface MuralItem {
   created_at: string;
 }
 
+export interface AuditLog {
+  id: string;
+  acao: string;
+  detalhes: string;
+  autor_nome: string;
+  autor_email?: string;
+  autor_role?: string;
+  categoria?: 'turma' | 'aluno' | 'fila' | 'frequencia' | 'professor' | 'admin' | 'sistema';
+  ip?: string;
+  created_at: string;
+}
+
 export function extractAgeRange(nome: string): { idade_minima: number; idade_maxima: number } {
   if (!nome) return { idade_minima: 0, idade_maxima: 120 };
   const matchRange = nome.match(/(\d+)\s*a\s*(\d+)/i);
@@ -145,6 +157,7 @@ interface MemoryStore {
   admins: AdminUser[];
   professores?: ProfessorUser[];
   mural: MuralItem[];
+  logs?: AuditLog[];
 }
 
 @Injectable()
@@ -161,6 +174,7 @@ export class DatabaseService implements OnModuleInit {
     admins: [],
     professores: [],
     mural: [],
+    logs: [],
   };
 
   private isSyncing = false;
@@ -326,12 +340,14 @@ export class DatabaseService implements OnModuleInit {
           admins: Array.isArray(parsed.admins) && parsed.admins.length > 0 ? parsed.admins : this.getDefaultAdmins(),
           professores: Array.isArray(parsed.professores) && parsed.professores.length > 0 ? parsed.professores : this.getDefaultProfessores(),
           mural: Array.isArray(parsed.mural) && parsed.mural.length > 0 ? parsed.mural : this.getDefaultMural(),
+          logs: Array.isArray(parsed.logs) ? parsed.logs : [],
         };
-        this.logger.log(`Cache RAM carregado do disco: ${this.memoryDb.turmas.length} turmas, ${this.memoryDb.alunos.length} alunos, ${this.memoryDb.frequencias.length} registros de frequência.`);
+        this.logger.log(`Cache RAM carregado do disco: ${this.memoryDb.turmas.length} turmas, ${this.memoryDb.alunos.length} alunos, ${this.memoryDb.frequencias.length} registros de frequência, ${this.memoryDb.logs?.length || 0} logs.`);
       } else {
         this.memoryDb.mural = this.getDefaultMural();
         this.memoryDb.admins = this.getDefaultAdmins();
         this.memoryDb.professores = this.getDefaultProfessores();
+        this.memoryDb.logs = [];
         fs.writeFileSync(this.filePath, JSON.stringify(this.memoryDb, null, 2), 'utf-8');
       }
     } catch (e: any) {
@@ -975,12 +991,12 @@ export class DatabaseService implements OnModuleInit {
     // Sincroniza falta justificada com o Supabase
     try {
       const client = this.supabaseService.getClient();
-      client
+      (client
         .from('frequencias')
         .upsert(
           [{ aluno_id: alunoId, data: dataStr, presente: false, justificativa: textoJust }],
           { onConflict: 'aluno_id,data' }
-        )
+        ) as any)
         .then(() => {})
         .catch(() => {});
     } catch {}
@@ -1081,17 +1097,17 @@ export class DatabaseService implements OnModuleInit {
         };
       });
 
-      client
+      (client
         .from('frequencias')
-        .upsert(payloadSupabase, { onConflict: 'aluno_id,data' })
-        .then(({ error }) => {
+        .upsert(payloadSupabase, { onConflict: 'aluno_id,data' }) as any)
+        .then(({ error }: any) => {
           if (error) {
             this.logger.warn('Aviso ao sincronizar frequências com Supabase: ' + error.message);
           } else {
             this.logger.log(`Frequências salvas no Supabase para data ${dataStr} (${payloadSupabase.length} alunos).`);
           }
         })
-        .catch((err) => {
+        .catch((err: any) => {
           this.logger.warn('Erro ao conectar ao Supabase para salvar frequências: ' + err?.message);
         });
     } catch (e: any) {
@@ -1341,6 +1357,64 @@ export class DatabaseService implements OnModuleInit {
     const idx = this.memoryDb.professores.findIndex((p) => p.id === id);
     if (idx === -1) return false;
     this.memoryDb.professores.splice(idx, 1);
+    this.persistToDiskAsync();
+    return true;
+  }
+
+  // --- LOGS DE AUDITORIA (HISTÓRICO DE AÇÕES) ---
+  async getLogs(limite: number = 200, categoria?: string): Promise<AuditLog[]> {
+    if (!this.memoryDb.logs) {
+      this.memoryDb.logs = [];
+    }
+
+    let logs = [...this.memoryDb.logs];
+    if (categoria && categoria !== 'todos') {
+      logs = logs.filter((l) => l.categoria === categoria);
+    }
+
+    // Ordenar do mais recente para o mais antigo
+    logs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return logs.slice(0, limite);
+  }
+
+  async addLog(logData: {
+    acao: string;
+    detalhes: string;
+    autor_nome?: string;
+    autor_email?: string;
+    autor_role?: string;
+    categoria?: 'turma' | 'aluno' | 'fila' | 'frequencia' | 'professor' | 'admin' | 'sistema';
+    ip?: string;
+  }): Promise<AuditLog> {
+    if (!this.memoryDb.logs) {
+      this.memoryDb.logs = [];
+    }
+
+    const novoLog: AuditLog = {
+      id: randomUUID(),
+      acao: logData.acao.trim(),
+      detalhes: logData.detalhes.trim(),
+      autor_nome: logData.autor_nome?.trim() || 'Sistema / Usuário',
+      autor_email: logData.autor_email?.trim() || '',
+      autor_role: logData.autor_role?.trim() || 'admin',
+      categoria: logData.categoria || 'sistema',
+      ip: logData.ip,
+      created_at: new Date().toISOString(),
+    };
+
+    this.memoryDb.logs.unshift(novoLog);
+
+    // Limitar memória a 2000 logs para evitar consumo excessivo de RAM
+    if (this.memoryDb.logs.length > 2000) {
+      this.memoryDb.logs = this.memoryDb.logs.slice(0, 2000);
+    }
+
+    this.persistToDiskAsync();
+    return novoLog;
+  }
+
+  async clearLogs(): Promise<boolean> {
+    this.memoryDb.logs = [];
     this.persistToDiskAsync();
     return true;
   }

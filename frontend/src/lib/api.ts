@@ -139,3 +139,47 @@ export async function salvarLoteFrequencia(turmaId: string, dataStr: string, reg
   }
   return res.json();
 }
+
+export interface AuditLog {
+  id: string;
+  acao: string;
+  detalhes: string;
+  autor_nome?: string;
+  autor_email?: string;
+  autor_role?: string;
+  categoria?: 'turma' | 'aluno' | 'fila' | 'frequencia' | 'professor' | 'admin' | 'sistema';
+  ip?: string;
+  created_at: string;
+}
+
+export async function fetchLogs(): Promise<AuditLog[]> {
+  const res = await fetch(`${getApiBase()}/admin/logs`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function registrarAcaoLog(logData: {
+  acao: string;
+  detalhes: string;
+  autor_nome?: string;
+  autor_email?: string;
+  autor_role?: string;
+  categoria?: 'turma' | 'aluno' | 'fila' | 'frequencia' | 'professor' | 'admin' | 'sistema';
+}) {
+  try {
+    await fetch(`${getApiBase()}/admin/logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(logData),
+    });
+  } catch (err) {
+    console.warn('Erro ao salvar log de auditoria:', err);
+  }
+}
+
+export async function exportarLogsCSV(): Promise<string> {
+  const res = await fetch(`${getApiBase()}/admin/logs/exportar`);
+  if (!res.ok) throw new Error('Falha ao exportar logs');
+  const data = await res.json();
+  return data.csv;
+}

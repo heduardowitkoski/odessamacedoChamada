@@ -64,4 +64,31 @@ export class AdminController {
   async removerProfessor(@Param('id') id: string) {
     return this.adminService.removerProfessor(id);
   }
+
+  // --- LOGS DE AUDITORIA ---
+  @Get('logs')
+  async listarLogs(@Param() _p: any, @Body() _b: any) {
+    return this.adminService.listarLogs();
+  }
+
+  @Post('logs')
+  async registrarLog(
+    @Body()
+    dto: {
+      acao: string;
+      detalhes: string;
+      autor_nome?: string;
+      autor_email?: string;
+      autor_role?: string;
+      categoria?: 'turma' | 'aluno' | 'fila' | 'frequencia' | 'professor' | 'admin' | 'sistema';
+    },
+  ) {
+    return this.adminService.registrarLog(dto);
+  }
+
+  @Get('logs/exportar')
+  async exportarLogsCSV() {
+    const csv = await this.adminService.exportarLogsCSV();
+    return { csv };
+  }
 }
