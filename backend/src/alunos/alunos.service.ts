@@ -295,8 +295,8 @@ export class AlunosService {
         (async () => {
           try {
             const supabase = this.supabaseService.getClient();
-            // 1. Marca lista_espera como aprovado
-            await supabase.from('lista_espera').update({ status: 'aprovado' }).eq('id', id);
+            // 1. Remove da tabela lista_espera (transferido com sucesso para alunos)
+            await supabase.from('lista_espera').delete().eq('id', id);
 
             // 2. Insere na tabela alunos com status 'Ativo'
             const alunoPayload: any = {

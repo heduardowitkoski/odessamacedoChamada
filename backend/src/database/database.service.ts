@@ -687,12 +687,12 @@ export class DatabaseService implements OnModuleInit {
     aluno.status = novoStatus;
     aluno.turma_id = turma_id;
 
-    // Se foi promovido a 'Ativo', atualiza status na lista_espera para 'aprovado'
-    const filaItem = this.memoryDb.lista_espera.find((l) => l.id === id);
-    if (filaItem) {
-      if (novoStatus === 'Ativo') {
-        filaItem.status = 'aprovado';
-      } else if (novoStatus === 'Inativo') {
+    // Se foi promovido a 'Ativo', remove da lista_espera
+    if (novoStatus === 'Ativo') {
+      this.memoryDb.lista_espera = this.memoryDb.lista_espera.filter((l) => l.id !== id);
+    } else {
+      const filaItem = this.memoryDb.lista_espera.find((l) => l.id === id);
+      if (filaItem && novoStatus === 'Inativo') {
         filaItem.status = 'recusado';
       }
     }

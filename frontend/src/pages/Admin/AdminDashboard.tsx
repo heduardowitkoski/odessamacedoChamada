@@ -333,6 +333,11 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       if (res.ok) {
+        // Garante exclusão imediata da tabela lista_espera no Supabase
+        try {
+          await supabase.from('lista_espera').delete().eq('id', alunoParaChamar.id);
+        } catch {}
+
         fetchAlunos();
         fetchTurmas();
         fetchAlertasFaltas();
