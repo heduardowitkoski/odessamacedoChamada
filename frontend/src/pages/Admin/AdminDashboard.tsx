@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2, Menu
+  Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2, Menu, GraduationCap
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Avatar } from "../../components/ui/Avatar";
@@ -96,6 +96,16 @@ export default function AdminDashboard() {
   const [adminParaEditar, setAdminParaEditar] = useState<any>(null);
   const [editandoAdmin, setEditandoAdmin] = useState(false);
   const [adminEditForm, setAdminEditForm] = useState({ nome: '', email: '' });
+
+  // Estados para Gestão de Professores
+  const [professores, setProfessores] = useState<any[]>([]);
+  const [loadingProfessores, setLoadingProfessores] = useState(false);
+  const [showModalNovoProfessor, setShowModalNovoProfessor] = useState(false);
+  const [novoProfessor, setNovoProfessor] = useState({ nome: '', email: '', telefone: '', especialidade: '', turma_ids: [] as string[] });
+  const [savingProfessor, setSavingProfessor] = useState(false);
+  const [professorParaEditar, setProfessorParaEditar] = useState<any>(null);
+  const [editandoProfessor, setEditandoProfessor] = useState(false);
+  const [professorEditForm, setProfessorEditForm] = useState<any>({ nome: '', email: '', telefone: '', especialidade: '', turma_ids: [] });
 
   // Estados para Meus Dados (Configurações)
   const [meuPerfil, setMeuPerfil] = useState<UserProfile | null>(() => getCurrentUser());
@@ -235,6 +245,7 @@ export default function AdminDashboard() {
     fetchTurmas();
     fetchAlertasFaltas();
     fetchAdmins();
+    fetchProfessores();
   }, []);
 
   useEffect(() => {
@@ -330,6 +341,105 @@ export default function AdminDashboard() {
       }
     } catch (e) {
       alert("Erro de conexão");
+    }
+  };
+
+  const fetchProfessores = () => {
+    setLoadingProfessores(true);
+    fetch(`${getApiBase()}/admin/professores`)
+      .then(res => res.json())
+      .then(data => {
+        setProfessores(Array.isArray(data) ? data : []);
+        setLoadingProfessores(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoadingProfessores(false);
+      });
+  };
+
+  const handleCreateProfessor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!novoProfessor.nome.trim() || !novoProfessor.email.trim()) {
+      alert("Preencha o nome e o e-mail do professor.");
+      return;
+    }
+    setSavingProfessor(true);
+    try {
+      const res = await fetch(`${getApiBase()}/admin/professores`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(novoProfessor),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Professor cadastrado com sucesso!");
+        setShowModalNovoProfessor(false);
+        setNovoProfessor({ nome: '', email: '', telefone: '', especialidade: '', turma_ids: [] });
+        fetchProfessores();
+      } else {
+        alert("Erro ao cadastrar professor: " + (data.message || "Erro desconhecido"));
+      }
+    } catch {
+      alert("Erro de conexão ao cadastrar professor.");
+    } finally {
+      setSavingProfessor(false);
+    }
+  };
+
+  const handleDeleteProfessor = async (prof: any) => {
+    if (!window.confirm(`Deseja realmente remover o professor ${prof.nome}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${getApiBase()}/admin/professores/${prof.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        alert("Professor removido com sucesso!");
+        fetchProfessores();
+      } else {
+        const err = await res.json();
+        alert("Erro ao remover: " + (err.message || 'Erro desconhecido'));
+      }
+    } catch {
+      alert("Erro de conexão ao remover professor.");
+    }
+  };
+
+  const handleOpenEditProfessor = (prof: any) => {
+    setProfessorParaEditar(prof);
+    setProfessorEditForm({
+      nome: prof.nome || '',
+      email: prof.email || '',
+      telefone: prof.telefone || '',
+      especialidade: prof.especialidade || '',
+      turma_ids: Array.isArray(prof.turmas) ? prof.turmas.map((t: any) => t.id) : (prof.turma_ids || []),
+    });
+  };
+
+  const handleSaveEditProfessor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!professorParaEditar) return;
+    setEditandoProfessor(true);
+    try {
+      const res = await fetch(`${getApiBase()}/admin/professores/${professorParaEditar.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(professorEditForm),
+      });
+      if (res.ok) {
+        alert('Dados do professor atualizados com sucesso!');
+        setProfessorParaEditar(null);
+        fetchProfessores();
+      } else {
+        const err = await res.json();
+        alert('Erro ao atualizar professor: ' + (err.message || 'Tente novamente'));
+      }
+    } catch {
+      alert('Erro de conexão ao atualizar professor.');
+    } finally {
+      setEditandoProfessor(false);
     }
   };
 
@@ -845,6 +955,7 @@ export default function AdminDashboard() {
       badgeColor: "bg-red-500" 
     },
     { icon: <BookOpen size={17} />, label: "Turmas" },
+    { icon: <GraduationCap size={17} />, label: "Professores", badge: professores.length },
     { icon: <Sparkles size={17} />, label: "Mural" },
     { icon: <ShieldCheck size={17} />, label: "Administradores", badge: admins.length },
     { icon: <BarChart2 size={17} />, label: "Relatórios" },
@@ -986,6 +1097,8 @@ export default function AdminDashboard() {
                 ? "Registro de Frequência e Chamada Diária" 
                 : activeMenu === "Turmas" 
                 ? (selectedTurmaView ? `Turma: ${selectedTurmaView.nome} · Gestão de Alunos` : "Gestão de Turmas e Vagas")
+                : activeMenu === "Professores"
+                ? "Corpo Docente · Gestão de Professores"
                 : activeMenu === "Mural"
                 ? "Mural de Atividades e Obras"
                 : activeMenu === "Administradores"
@@ -1028,6 +1141,13 @@ export default function AdminDashboard() {
                   <Plus size={15} /> Nova turma
                 </button>
               </div>
+            ) : activeMenu === "Professores" ? (
+              <button 
+                onClick={() => setShowModalNovoProfessor(true)} 
+                className="flex items-center gap-2 text-sm text-white bg-amber-500 font-bold rounded-xl px-3.5 py-2 hover:bg-amber-600 transition-colors shadow-xs cursor-pointer"
+              >
+                <Plus size={15} /> Novo Professor
+              </button>
             ) : activeMenu === "Administradores" ? (
               <button 
                 onClick={() => setShowModalNovoAdmin(true)} 
@@ -1660,6 +1780,166 @@ export default function AdminDashboard() {
                         <tr>
                           <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm">
                             Nenhum aluno ativo matriculado nesta turma.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : activeMenu === "Professores" ? (
+            /* --- MÓDULO DE GESTÃO DE PROFESSORES --- */
+            <div className="space-y-6">
+              {/* Cards de Resumo dos Professores */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-white rounded-2xl p-5 border border-amber-50 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+                    <GraduationCap size={22} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300]">
+                      {professores.length}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">Professores Cadastrados</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 border border-amber-50 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+                    <BookOpen size={22} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300]">
+                      {professores.reduce((acc, p) => acc + (p.total_turmas || (p.turmas?.length || 0)), 0)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">Turmas Atendidas</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 border border-amber-50 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                    <Users size={22} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300]">
+                      {professores.reduce((acc, p) => acc + (p.total_alunos || 0), 0)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">Alunos Sob Orientação</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabela de Professores */}
+              <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                  <div>
+                    <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
+                      Corpo Docente ({professores.length})
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      Consulte os professores cadastrados, especialidades, turmas alocadas e contagem total de alunos atendidos.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowModalNovoProfessor(true)}
+                    className="text-xs text-white bg-amber-500 font-bold px-4 py-2.5 rounded-xl hover:bg-amber-600 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Plus size={15} /> Novo Professor
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400">
+                        <th className="px-6 py-3">Professor</th>
+                        <th className="px-6 py-3">Contato / E-mail</th>
+                        <th className="px-6 py-3">Especialidade</th>
+                        <th className="px-6 py-3">Turmas Alocadas</th>
+                        <th className="px-6 py-3 text-center">Nº Turmas</th>
+                        <th className="px-6 py-3 text-center">Nº Alunos</th>
+                        <th className="px-6 py-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 text-sm">
+                      {professores.map((prof) => (
+                        <tr key={prof.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 font-bold flex items-center justify-center shrink-0">
+                                {prof.nome ? prof.nome.charAt(0).toUpperCase() : 'P'}
+                              </div>
+                              <div>
+                                <p className="font-bold text-gray-900">{prof.nome}</p>
+                                <p className="text-[11px] text-gray-400">ID: {prof.id.slice(0, 8)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-xs font-medium text-gray-800">{prof.email}</p>
+                            {prof.telefone && (
+                              <p className="text-xs text-gray-500 mt-0.5">{prof.telefone}</p>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700">
+                              {prof.especialidade || "Artes Visuais & Desenho"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1.5 max-w-xs">
+                              {Array.isArray(prof.turmas) && prof.turmas.length > 0 ? (
+                                prof.turmas.map((t: any) => (
+                                  <span
+                                    key={t.id}
+                                    onClick={() => handleOpenTurma(t)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200/60 hover:bg-amber-100 cursor-pointer transition-colors"
+                                    title={`Ver detalhes e alunos da turma ${t.nome}`}
+                                  >
+                                    <BookOpen size={10} className="text-amber-600" />
+                                    {t.nome} ({t.turno})
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-gray-400 italic">Nenhuma turma vinculada</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              {prof.total_turmas ?? (prof.turmas?.length || 0)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {prof.total_alunos ?? 0}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleOpenEditProfessor(prof)}
+                                className="px-3 py-1.5 text-xs text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Editar dados cadastrais e turmas do professor"
+                              >
+                                <Pencil size={13} /> Editar
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProfessor(prof)}
+                                className="px-3 py-1.5 text-xs text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Remover professor"
+                              >
+                                <Trash2 size={13} /> Remover
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {professores.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-12 text-center text-gray-400 text-sm">
+                            {loadingProfessores ? "Carregando professores..." : "Nenhum professor cadastrado ainda."}
                           </td>
                         </tr>
                       )}
@@ -2469,6 +2749,281 @@ export default function AdminDashboard() {
                     </>
                   ) : (
                     "Cadastrar Administrador"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Novo Professor */}
+      {showModalNovoProfessor && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-amber-100">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <GraduationCap size={18} />
+                </div>
+                <div>
+                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                    Novo Professor
+                  </h3>
+                  <p className="text-xs text-gray-400">Cadastre um novo professor e atribua suas turmas</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowModalNovoProfessor(false)}
+                className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProfessor} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Nome Completo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Prof. Mariana Luz"
+                  value={novoProfessor.nome}
+                  onChange={(e) => setNovoProfessor({ ...novoProfessor, nome: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    E-mail Institucional *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="professor@odessamacedo.com.br"
+                    value={novoProfessor.email}
+                    onChange={(e) => setNovoProfessor({ ...novoProfessor, email: e.target.value })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Telefone / WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="(53) 99999-9999"
+                    value={novoProfessor.telefone}
+                    onChange={(e) => setNovoProfessor({ ...novoProfessor, telefone: e.target.value })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Especialidade / Matéria
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Artes Visuais, Pintura e Desenho Artístico"
+                  value={novoProfessor.especialidade}
+                  onChange={(e) => setNovoProfessor({ ...novoProfessor, especialidade: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Turmas Atribuídas
+                </label>
+                <div className="max-h-36 overflow-y-auto border border-gray-200 rounded-xl p-2.5 space-y-1.5 bg-gray-50">
+                  {turmasDb.map((t) => {
+                    const checked = novoProfessor.turma_ids.includes(t.id);
+                    return (
+                      <label key={t.id} className="flex items-center gap-2 text-xs text-gray-700 p-1 hover:bg-amber-50 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNovoProfessor({ ...novoProfessor, turma_ids: [...novoProfessor.turma_ids, t.id] });
+                            } else {
+                              setNovoProfessor({ ...novoProfessor, turma_ids: novoProfessor.turma_ids.filter((id) => id !== t.id) });
+                            }
+                          }}
+                          className="rounded text-amber-500 focus:ring-amber-400"
+                        />
+                        <span className="font-medium text-gray-800">{t.nome}</span>
+                        <span className="text-gray-400">({t.turno})</span>
+                      </label>
+                    );
+                  })}
+                  {turmasDb.length === 0 && (
+                    <p className="text-xs text-gray-400 p-1">Nenhuma turma cadastrada.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowModalNovoProfessor(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfessor}
+                  className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {savingProfessor ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" /> Cadastrando...
+                    </>
+                  ) : (
+                    "Cadastrar Professor"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Editar Professor */}
+      {professorParaEditar && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-amber-100">
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <Pencil size={18} />
+                </div>
+                <div>
+                  <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
+                    Editar Professor
+                  </h3>
+                  <p className="text-xs text-gray-400">Atualize dados cadastrais e vínculo de turmas</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setProfessorParaEditar(null)}
+                className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditProfessor} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Nome Completo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={professorEditForm.nome}
+                  onChange={(e) => setProfessorEditForm({ ...professorEditForm, nome: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    E-mail Institucional *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={professorEditForm.email}
+                    onChange={(e) => setProfessorEditForm({ ...professorEditForm, email: e.target.value })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Telefone / WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    value={professorEditForm.telefone}
+                    onChange={(e) => setProfessorEditForm({ ...professorEditForm, telefone: e.target.value })}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Especialidade / Matéria
+                </label>
+                <input
+                  type="text"
+                  value={professorEditForm.especialidade}
+                  onChange={(e) => setProfessorEditForm({ ...professorEditForm, especialidade: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Turmas Atribuídas
+                </label>
+                <div className="max-h-36 overflow-y-auto border border-gray-200 rounded-xl p-2.5 space-y-1.5 bg-gray-50">
+                  {turmasDb.map((t) => {
+                    const checked = (professorEditForm.turma_ids || []).includes(t.id);
+                    return (
+                      <label key={t.id} className="flex items-center gap-2 text-xs text-gray-700 p-1 hover:bg-amber-50 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const current = professorEditForm.turma_ids || [];
+                            if (e.target.checked) {
+                              setProfessorEditForm({ ...professorEditForm, turma_ids: [...current, t.id] });
+                            } else {
+                              setProfessorEditForm({ ...professorEditForm, turma_ids: current.filter((id: string) => id !== t.id) });
+                            }
+                          }}
+                          className="rounded text-amber-500 focus:ring-amber-400"
+                        />
+                        <span className="font-medium text-gray-800">{t.nome}</span>
+                        <span className="text-gray-400">({t.turno})</span>
+                      </label>
+                    );
+                  })}
+                  {turmasDb.length === 0 && (
+                    <p className="text-xs text-gray-400 p-1">Nenhuma turma cadastrada.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setProfessorParaEditar(null)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editandoProfessor}
+                  className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {editandoProfessor ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" /> Salvando...
+                    </>
+                  ) : (
+                    "Salvar Alterações"
                   )}
                 </button>
               </div>

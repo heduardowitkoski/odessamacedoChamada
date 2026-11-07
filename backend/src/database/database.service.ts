@@ -80,6 +80,16 @@ export interface AdminUser {
   last_sign_in_at?: string;
 }
 
+export interface ProfessorUser {
+  id: string;
+  nome: string;
+  email: string;
+  telefone?: string;
+  especialidade?: string;
+  turma_ids?: string[];
+  created_at: string;
+}
+
 export interface MuralItem {
   id: string;
   titulo: string;
@@ -133,6 +143,7 @@ interface MemoryStore {
   frequencias: Frequencia[];
   lista_espera: any[];
   admins: AdminUser[];
+  professores?: ProfessorUser[];
   mural: MuralItem[];
 }
 
@@ -148,6 +159,7 @@ export class DatabaseService implements OnModuleInit {
     frequencias: [],
     lista_espera: [],
     admins: [],
+    professores: [],
     mural: [],
   };
 
@@ -203,6 +215,29 @@ export class DatabaseService implements OnModuleInit {
         email: 'admin@odessamacedo.edu.br',
         nome: 'Coordenação Odessa Macedo',
         role: 'admin',
+        created_at: new Date().toISOString(),
+      },
+    ];
+  }
+
+  private getDefaultProfessores(): ProfessorUser[] {
+    return [
+      {
+        id: 'usr-prof-henrique',
+        nome: 'Prof. Henrique Storniolo Rossal',
+        email: 'professor@odessamacedo.com.br',
+        telefone: '(53) 99123-4567',
+        especialidade: 'Artes Visuais, Desenho & Aquarela',
+        turma_ids: ['juvenil-a', 'infantil-b'],
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'usr-prof-carlos',
+        nome: 'Prof. Carlos Eduardo',
+        email: 'carlos.eduardo@odessamacedo.com.br',
+        telefone: '(53) 99876-5432',
+        especialidade: 'Desenho Artístico, Nanquim e Carvão',
+        turma_ids: ['juvenil-b', 'infantil-a'],
         created_at: new Date().toISOString(),
       },
     ];
@@ -289,12 +324,14 @@ export class DatabaseService implements OnModuleInit {
           frequencias: Array.isArray(parsed.frequencias) ? parsed.frequencias : [],
           lista_espera: Array.isArray(parsed.lista_espera) ? parsed.lista_espera : [],
           admins: Array.isArray(parsed.admins) && parsed.admins.length > 0 ? parsed.admins : this.getDefaultAdmins(),
+          professores: Array.isArray(parsed.professores) && parsed.professores.length > 0 ? parsed.professores : this.getDefaultProfessores(),
           mural: Array.isArray(parsed.mural) && parsed.mural.length > 0 ? parsed.mural : this.getDefaultMural(),
         };
         this.logger.log(`Cache RAM carregado do disco: ${this.memoryDb.turmas.length} turmas, ${this.memoryDb.alunos.length} alunos, ${this.memoryDb.frequencias.length} registros de frequência.`);
       } else {
         this.memoryDb.mural = this.getDefaultMural();
         this.memoryDb.admins = this.getDefaultAdmins();
+        this.memoryDb.professores = this.getDefaultProfessores();
         fs.writeFileSync(this.filePath, JSON.stringify(this.memoryDb, null, 2), 'utf-8');
       }
     } catch (e: any) {
@@ -1159,6 +1196,93 @@ export class DatabaseService implements OnModuleInit {
     const idx = this.memoryDb.admins.findIndex((a) => a.id === id);
     if (idx === -1) return false;
     this.memoryDb.admins.splice(idx, 1);
+    this.persistToDiskAsync();
+    return true;
+  }
+
+  // --- GESTÃO DE PROFESSORES ---
+  async getProfessores(): Promise<any[]> {
+    if (!this.memoryDb.professores || this.memoryDb.professores.length === 0) {
+      this.memoryDb.professores = this.getDefaultProfessores();
+      this.persistToDiskAsync();
+    }
+
+    const turmas = this.memoryDb.turmas;
+    const alunosAtivos = this.memoryDb.alunos.filter((a) => a.status === 'Ativo');
+
+    return this.memoryDb.professores.map((prof) => {
+      // Identificar turmas vinculadas pelo turma_ids ou pelo nome do professor
+      const turmasDoProf = turmas.filter((t) => {
+        if (prof.turma_ids && prof.turma_ids.includes(t.id)) return true;
+        // fallback de compatibilidade se houver menção por nome
+        if ((t as any).professor_id === prof.id) return true;
+        return false;
+      });
+
+      const turmaIdsSet = new Set(turmasDoProf.map((t) => t.id));
+      const totalAlunos = alunosAtivos.filter((a) => turmaIdsSet.has(a.turma_id)).length;
+
+      return {
+        ...prof,
+        turmas: turmasDoProf.map((t) => ({ id: t.id, nome: t.nome, turno: t.turno })),
+        total_turmas: turmasDoProf.length,
+        total_alunos: totalAlunos,
+      };
+    });
+  }
+
+  async createProfessor(dto: {
+    nome: string;
+    email: string;
+    telefone?: string;
+    especialidade?: string;
+    turma_ids?: string[];
+  }): Promise<ProfessorUser> {
+    const novo: ProfessorUser = {
+      id: randomUUID(),
+      nome: dto.nome.trim(),
+      email: dto.email.trim().toLowerCase(),
+      telefone: dto.telefone?.trim() || '',
+      especialidade: dto.especialidade?.trim() || 'Artes Visuais e Desenho',
+      turma_ids: Array.isArray(dto.turma_ids) ? dto.turma_ids : [],
+      created_at: new Date().toISOString(),
+    };
+
+    if (!this.memoryDb.professores) this.memoryDb.professores = this.getDefaultProfessores();
+    this.memoryDb.professores.unshift(novo);
+    this.persistToDiskAsync();
+    return novo;
+  }
+
+  async updateProfessor(
+    id: string,
+    dto: {
+      nome?: string;
+      email?: string;
+      telefone?: string;
+      especialidade?: string;
+      turma_ids?: string[];
+    },
+  ): Promise<ProfessorUser | null> {
+    if (!this.memoryDb.professores) this.memoryDb.professores = this.getDefaultProfessores();
+    const prof = this.memoryDb.professores.find((p) => p.id === id);
+    if (!prof) return null;
+
+    if (dto.nome !== undefined) prof.nome = dto.nome.trim();
+    if (dto.email !== undefined) prof.email = dto.email.trim().toLowerCase();
+    if (dto.telefone !== undefined) prof.telefone = dto.telefone.trim();
+    if (dto.especialidade !== undefined) prof.especialidade = dto.especialidade.trim();
+    if (dto.turma_ids !== undefined) prof.turma_ids = dto.turma_ids;
+
+    this.persistToDiskAsync();
+    return prof;
+  }
+
+  async removeProfessor(id: string): Promise<boolean> {
+    if (!this.memoryDb.professores) return false;
+    const idx = this.memoryDb.professores.findIndex((p) => p.id === id);
+    if (idx === -1) return false;
+    this.memoryDb.professores.splice(idx, 1);
     this.persistToDiskAsync();
     return true;
   }

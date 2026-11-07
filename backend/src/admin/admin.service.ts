@@ -133,4 +133,69 @@ export class AdminService {
 
     return { success: true, message: 'Administrador removido com sucesso.' };
   }
+
+  // --- GESTÃO DE PROFESSORES ---
+  async listarProfessores() {
+    if (this.databaseService) {
+      return this.databaseService.getProfessores();
+    }
+    return [];
+  }
+
+  async criarProfessor(dto: {
+    nome: string;
+    email: string;
+    telefone?: string;
+    especialidade?: string;
+    turma_ids?: string[];
+  }) {
+    if (!dto.nome || !dto.nome.trim()) {
+      throw new BadRequestException('Nome do professor é obrigatório.');
+    }
+    if (!dto.email || !dto.email.includes('@')) {
+      throw new BadRequestException('E-mail inválido.');
+    }
+
+    if (this.databaseService) {
+      return this.databaseService.createProfessor(dto);
+    }
+
+    throw new BadRequestException('Serviço de banco de dados não disponível.');
+  }
+
+  async atualizarProfessor(
+    id: string,
+    dto: {
+      nome?: string;
+      email?: string;
+      telefone?: string;
+      especialidade?: string;
+      turma_ids?: string[];
+    },
+  ) {
+    if (!id) {
+      throw new BadRequestException('ID do professor é obrigatório.');
+    }
+
+    if (this.databaseService) {
+      const prof = await this.databaseService.updateProfessor(id, dto);
+      if (!prof) throw new BadRequestException('Professor não encontrado.');
+      return { success: true, message: 'Professor atualizado com sucesso.', professor: prof };
+    }
+
+    throw new BadRequestException('Serviço de banco de dados não disponível.');
+  }
+
+  async removerProfessor(id: string) {
+    if (!id) {
+      throw new BadRequestException('ID do professor é obrigatório.');
+    }
+
+    if (this.databaseService) {
+      const ok = await this.databaseService.removeProfessor(id);
+      return { success: ok, message: ok ? 'Professor removido com sucesso.' : 'Professor não encontrado.' };
+    }
+
+    return { success: true, message: 'Professor removido com sucesso.' };
+  }
 }
