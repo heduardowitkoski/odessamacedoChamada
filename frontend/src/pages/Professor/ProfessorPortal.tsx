@@ -62,16 +62,47 @@ export default function ProfessorPortal() {
   }, []);
 
   const carregarFilaEspera = async () => {
+    let fila: any[] = [];
     try {
       const res = await fetch(`${API_BASE}/alunos`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          const fila = data.filter((a: any) => a.status === 'Fila' || a.status === 'aguardando');
-          setFilaEspera(fila);
+          fila = data.filter((a: any) => a.status === 'Fila' || a.status === 'aguardando');
         }
       }
     } catch {}
+
+    // Fallback/complemento direto ao Supabase
+    try {
+      const { data: supaFila, error } = await supabase
+        .from('lista_espera')
+        .select('*, turmas(*)')
+        .or('status.eq.aguardando,status.is.null')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(supaFila)) {
+        const ids = new Set(fila.map((f) => f.id));
+        for (const item of supaFila) {
+          if (!ids.has(item.id)) {
+            fila.push({
+              ...item,
+              aluno_nome: item.aluno_nome || item.nome_aluno || 'Aluno',
+              resp_nome: item.resp_nome || item.nome_responsavel || 'Responsável',
+              resp_telefone: item.resp_telefone || item.telefone_responsavel || '—',
+              resp_email: item.resp_email || item.email_responsavel || '',
+              aluno_nascimento: item.aluno_nascimento || item.data_nascimento || '',
+              status: 'Fila',
+            });
+            ids.add(item.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Aviso ao consultar Supabase lista_espera:', e);
+    }
+
+    setFilaEspera(fila);
   };
 
   const handleOpenChamarModal = (aluno: any) => {

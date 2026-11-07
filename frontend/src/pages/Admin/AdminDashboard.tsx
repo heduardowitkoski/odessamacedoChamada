@@ -88,11 +88,49 @@ export default function AdminDashboard() {
 
   const navigate = useNavigate();
 
-  const fetchAlunos = () => {
-    fetch(`${getApiBase()}/alunos`)
-      .then(res => res.json())
-      .then(data => setAlunosDb(Array.isArray(data) ? data : []))
-      .catch(err => console.error(err));
+  const fetchAlunos = async () => {
+    try {
+      const res = await fetch(`${getApiBase()}/alunos`);
+      let alunosApi: any[] = [];
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) alunosApi = data;
+      }
+
+      // Consulta complementar direta à tabela lista_espera no Supabase
+      try {
+        const { data: filaSupabase, error: filaErr } = await supabase
+          .from('lista_espera')
+          .select('*, turmas(*)')
+          .or('status.eq.aguardando,status.is.null')
+          .order('created_at', { ascending: false });
+
+        if (!filaErr && Array.isArray(filaSupabase) && filaSupabase.length > 0) {
+          const idsExistentes = new Set(alunosApi.map((a: any) => a.id));
+          for (const item of filaSupabase) {
+            if (!idsExistentes.has(item.id)) {
+              alunosApi.push({
+                ...item,
+                aluno_nome: item.aluno_nome || item.nome_aluno || 'Aluno',
+                resp_nome: item.resp_nome || item.nome_responsavel || 'Responsável',
+                resp_telefone: item.resp_telefone || item.telefone_responsavel || '—',
+                resp_email: item.resp_email || item.email_responsavel || '',
+                aluno_nascimento: item.aluno_nascimento || item.data_nascimento || '',
+                status: 'Fila',
+                turmas: item.turmas || turmasDb.find((t) => t.id === item.turma_id) || undefined,
+              });
+              idsExistentes.add(item.id);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Aviso ao consultar lista_espera do Supabase:', e);
+      }
+
+      setAlunosDb(alunosApi);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchTurmas = () => {
@@ -196,7 +234,7 @@ export default function AdminDashboard() {
   }, [activeMenu, selectedTurmaFreq, selectedDataFreq]);
 
   const alunosAtivos = alunosDb.filter(a => a.status === 'Ativo');
-  const alunosFila = alunosDb.filter(a => a.status === 'Fila');
+  const alunosFila = alunosDb.filter(a => a.status === 'Fila' || a.status === 'aguardando');
 
   const generateChartData = (alunos: any[]) => {
     const turmasCount = alunos.reduce((acc: any, curr: any) => {
