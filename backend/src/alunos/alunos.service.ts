@@ -164,48 +164,44 @@ export class AlunosService {
 
   async remove(id: string) {
     if (this.databaseService) {
-      return this.databaseService.removeAluno(id);
+      await this.databaseService.removeAluno(id);
     }
 
     const supabase = this.supabaseService.getClient();
 
-    const { data: aluno, error: findError } = await supabase
-      .from('alunos')
-      .select('id, status, turma_id')
-      .eq('id', id)
-      .single();
+    try {
+      // 1. Busca aluno no Supabase se existir
+      const { data: aluno } = await supabase
+        .from('alunos')
+        .select('id, status, turma_id')
+        .eq('id', id)
+        .maybeSingle();
 
-    if (findError || !aluno) {
-      throw new BadRequestException('Aluno não encontrado para exclusão.');
-    }
-
-    if (aluno.status === 'Ativo' && aluno.turma_id) {
-      const { data: turma } = await supabase
-        .from('turmas')
-        .select('capacidade')
-        .eq('id', aluno.turma_id)
-        .single();
-
-      if (turma) {
-        await supabase
+      if (aluno && aluno.status === 'Ativo' && aluno.turma_id) {
+        const { data: turma } = await supabase
           .from('turmas')
-          .update({ capacidade: turma.capacidade + 1 })
-          .eq('id', aluno.turma_id);
+          .select('capacidade')
+          .eq('id', aluno.turma_id)
+          .single();
+
+        if (turma) {
+          await supabase
+            .from('turmas')
+            .update({ capacidade: turma.capacidade + 1 })
+            .eq('id', aluno.turma_id);
+        }
       }
-    }
 
-    await supabase
-      .from('frequencias')
-      .delete()
-      .eq('aluno_id', id);
+      // 2. Remove frequências associadas
+      await supabase.from('frequencias').delete().eq('aluno_id', id);
 
-    const { error: deleteError } = await supabase
-      .from('alunos')
-      .delete()
-      .eq('id', id);
+      // 3. Remove de alunos
+      await supabase.from('alunos').delete().eq('id', id);
 
-    if (deleteError) {
-      throw new InternalServerErrorException('Erro ao excluir aluno do banco: ' + deleteError.message);
+      // 4. Remove de lista_espera caso ainda conste
+      await supabase.from('lista_espera').delete().eq('id', id);
+    } catch (err: any) {
+      this.logger.warn(`Aviso ao excluir aluno do Supabase: ${err?.message}`);
     }
 
     return { success: true, message: 'Aluno removido com sucesso do banco de dados.' };

@@ -16,6 +16,10 @@ describe('AlunosService', () => {
     delete: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn().mockResolvedValue({
+      data: { id: 'a-1', status: 'Ativo', turma_id: 't-1' },
+      error: null,
+    }),
     single: jest.fn().mockResolvedValue({
       data: { id: 't-1', capacidade: 5, nome: 'Turma Juvenil A - 11 a 13 anos', idade_minima: 11, idade_maxima: 13 },
       error: null,

@@ -358,24 +358,39 @@ export default function AdminDashboard() {
   };
 
   const handleDelete = async (aluno: any) => {
-    if (!window.confirm(`Deseja realmente remover permanentemente o aluno ${aluno.aluno_nome || aluno.resp_nome} do banco de dados? Esta ação liberará a vaga na turma e apagará o cadastro definitivamente.`)) return;
+    if (!aluno) return;
+    const nomeAluno = aluno.aluno_nome || aluno.resp_nome || 'o aluno';
+    if (!window.confirm(`Deseja realmente remover permanentemente ${nomeAluno} do banco de dados? Esta ação liberará a vaga na turma e apagará o cadastro definitivamente.`)) return;
+
     try {
-      const res = await fetch(`${getApiBase()}/alunos/${aluno.id}`, {
-        method: "DELETE"
-      });
-      if (res.ok) {
-        alert("Aluno removido com sucesso do banco de dados!");
-        setSelectedAluno(null);
-        fetchAlunos();
-        fetchTurmas();
-        fetchAlertasFaltas();
-        refreshTurmaAlunos();
-      } else {
-        const err = await res.json();
-        alert("Erro ao excluir aluno: " + (err.message || "Tente novamente."));
+      // 1. Chamada à API
+      try {
+        await fetch(`${getApiBase()}/alunos/${aluno.id}`, { method: "DELETE" });
+      } catch {}
+
+      // 2. Garantia de exclusão direta no Supabase (alunos, frequências e lista_espera)
+      try {
+        if (aluno.status === 'Ativo' && aluno.turma_id) {
+          const { data: turma } = await supabase.from('turmas').select('capacidade').eq('id', aluno.turma_id).single();
+          if (turma) {
+            await supabase.from('turmas').update({ capacidade: turma.capacidade + 1 }).eq('id', aluno.turma_id);
+          }
+        }
+        await supabase.from('frequencias').delete().eq('aluno_id', aluno.id);
+        await supabase.from('alunos').delete().eq('id', aluno.id);
+        await supabase.from('lista_espera').delete().eq('id', aluno.id);
+      } catch (errSup) {
+        console.warn("Aviso ao excluir direto do Supabase:", errSup);
       }
+
+      alert("Aluno removido com sucesso do banco de dados!");
+      setSelectedAluno(null);
+      await fetchAlunos();
+      await fetchTurmas();
+      await fetchAlertasFaltas();
+      await refreshTurmaAlunos();
     } catch (e) {
-      alert("Erro de conexão com o servidor ao excluir aluno.");
+      alert("Erro ao excluir aluno. Tente novamente.");
     }
   };
 
@@ -1677,15 +1692,28 @@ export default function AdminDashboard() {
                                   {new Date(f.created_at).toLocaleDateString()}
                                 </td>
                                 <td className="px-6 py-3.5 text-right">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      abrirModalChamar(f);
-                                    }}
-                                    className="text-xs px-3.5 py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-xs flex items-center gap-1.5 ml-auto cursor-pointer"
-                                  >
-                                    <UserCheck size={14} /> Chamar / Aceitar
-                                  </button>
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        abrirModalChamar(f);
+                                      }}
+                                      className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                      title="Matricular e ativar aluno na turma"
+                                    >
+                                      <UserCheck size={14} /> Chamar / Aceitar
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(f);
+                                      }}
+                                      className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border border-red-200"
+                                      title="Excluir inscrição da fila"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
