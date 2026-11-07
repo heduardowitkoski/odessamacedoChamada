@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2
+  Home, Users, ListOrdered, BookOpen, BarChart2, Settings, UserCheck, Clock, Pencil, LogOut, Bell, Download, Plus, UserX, FileText, User, Phone, TrendingUp, CheckSquare, AlertTriangle, Calendar, Save, Check, X, HelpCircle, ShieldCheck, Mail, Copy, CheckCircle, Loader2, Trash2, Sparkles, ArrowLeft, Search, CheckCircle2, Menu
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Avatar } from "../../components/ui/Avatar";
@@ -42,6 +42,7 @@ export default function AdminDashboard() {
   const [selectedAluno, setSelectedAluno] = useState<any>(null);
   const [activeMenu, setActiveMenu] = useState("Alunos");
   const [activeTab, setActiveTab] = useState<"alunos" | "fila">("alunos");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Estados para Módulo de Frequência
   const [selectedTurmaFreq, setSelectedTurmaFreq] = useState<string>("");
@@ -716,20 +717,33 @@ export default function AdminDashboard() {
   const alunosEmRiscoTurma = (turmaAlunosData?.alunos || []).filter(a => (a.stats?.faltasConsecutivas || 0) >= 3);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif] flex">
+    <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif] flex overflow-x-hidden">
       {/* Sidebar */}
-      <aside className="w-60 bg-[#1C1300] flex flex-col flex-shrink-0">
-        <div className="h-16 flex items-center gap-3 px-5 border-b border-amber-900/40">
-          <Link to="/" className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center hover:bg-amber-600">
-            <Pencil size={13} className="text-white" />
-          </Link>
-          <div>
-            <p className="text-white text-xs font-bold leading-tight">CDE Odessa Macedo</p>
-            <p className="text-amber-400/70 text-[10px]">Painel administrativo</p>
+      <aside
+        className={`bg-[#1C1300] flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out ${
+          sidebarOpen ? "w-60 opacity-100" : "w-0 -translate-x-full opacity-0 pointer-events-none overflow-hidden"
+        }`}
+      >
+        <div className="h-16 flex items-center justify-between px-5 border-b border-amber-900/40 min-w-[240px]">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center hover:bg-amber-600">
+              <Pencil size={13} className="text-white" />
+            </Link>
+            <div>
+              <p className="text-white text-xs font-bold leading-tight">CDE Odessa Macedo</p>
+              <p className="text-amber-400/70 text-[10px]">Painel administrativo</p>
+            </div>
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-1 rounded-lg text-amber-400/60 hover:text-white hover:bg-amber-900/40 transition-colors"
+            title="Recolher menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 mt-2">
+        <nav className="flex-1 p-3 space-y-1 mt-2 min-w-[240px]">
           {menuItems.map(({ icon, label, badge, badgeColor }) => (
             <button
               key={label}
@@ -758,7 +772,7 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-amber-900/40">
+        <div className="p-4 border-t border-amber-900/40 min-w-[240px]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold">SC</div>
             <div className="flex-1 min-w-0">
@@ -781,10 +795,17 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Conteúdo */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-amber-100 h-16 flex items-center px-8 gap-4 flex-shrink-0 shadow-sm">
-          <div className="flex-1">
-            <h1 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-lg">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="bg-white border-b border-amber-100 h-16 flex items-center px-4 sm:px-8 gap-4 flex-shrink-0 shadow-sm">
+          <button
+            onClick={() => setSidebarOpen((prev) => !prev)}
+            className="p-2 text-gray-600 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors cursor-pointer"
+            title={sidebarOpen ? "Recolher menu lateral" : "Expandir menu lateral"}
+          >
+            <Menu size={22} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base sm:text-lg truncate">
               {activeMenu === "Frequência" 
                 ? "Registro de Frequência e Chamada Diária" 
                 : activeMenu === "Turmas" 

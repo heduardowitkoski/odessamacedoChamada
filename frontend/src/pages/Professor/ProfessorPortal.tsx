@@ -15,7 +15,9 @@ import {
   UserCheck,
   Mail,
   CheckCircle,
-  Copy
+  Copy,
+  Menu,
+  X
 } from 'lucide-react';
 import MuralBoard from '../../components/mural/MuralBoard';
 import { getCurrentUser, clearUserSession } from '../../lib/auth';
@@ -36,6 +38,7 @@ interface AlunoChamada {
 
 export default function ProfessorPortal() {
   const [activeTab, setActiveTab] = useState<'frequencia' | 'mural' | 'alunos' | 'fila'>('frequencia');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [turmas, setTurmas] = useState<any[]>([]);
   const [selectedTurmaId, setSelectedTurmaId] = useState<string>('');
   const [selectedData, setSelectedData] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -278,8 +281,15 @@ export default function ProfessorPortal() {
     <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif]">
       {/* Header do Diário do Professor */}
       <header className="bg-white border-b border-amber-100 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-[1440px] mx-auto px-8 h-16 flex items-center justify-between">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen((prev) => !prev)}
+              className="p-2 -ml-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+              title={sidebarOpen ? "Recolher menu lateral" : "Expandir menu lateral"}
+            >
+              <Menu size={22} />
+            </button>
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
               <Pencil size={16} className="text-white" />
             </div>
@@ -319,6 +329,151 @@ export default function ProfessorPortal() {
           </div>
         </div>
       </header>
+
+      {/* Menu Lateral Retrátil (Sidebar Drawer) */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <aside
+        className={`fixed top-0 left-0 bottom-0 w-72 bg-[#1C1300] text-white z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="h-16 flex items-center justify-between px-5 border-b border-amber-900/40">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+              <Pencil size={15} className="text-white" />
+            </div>
+            <div>
+              <p className="text-white text-xs font-bold leading-tight">Portal do Professor</p>
+              <p className="text-amber-400/70 text-[10px]">CDE Odessa Macedo</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-1.5 text-amber-400/70 hover:text-white hover:bg-amber-900/40 rounded-lg transition-colors cursor-pointer"
+            title="Fechar menu lateral"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/60">
+            Navegação
+          </p>
+          <button
+            onClick={() => {
+              setActiveTab('frequencia');
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'frequencia'
+                ? 'bg-blue-600 text-white'
+                : 'text-amber-200/80 hover:bg-amber-900/40 hover:text-white'
+            }`}
+          >
+            <CheckSquare size={16} />
+            <span>Diário de Chamada</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('mural');
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'mural'
+                ? 'bg-blue-600 text-white'
+                : 'text-amber-200/80 hover:bg-amber-900/40 hover:text-white'
+            }`}
+          >
+            <Sparkles size={16} />
+            <span>Mural de Obras & Criações</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('alunos');
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'alunos'
+                ? 'bg-blue-600 text-white'
+                : 'text-amber-200/80 hover:bg-amber-900/40 hover:text-white'
+            }`}
+          >
+            <Users size={16} />
+            <span>Meus Alunos & Contatos</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('fila');
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'fila'
+                ? 'bg-blue-600 text-white'
+                : 'text-amber-200/80 hover:bg-amber-900/40 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <ListOrdered size={16} />
+              <span>Fila de Espera</span>
+            </div>
+            {filaEspera.length > 0 && (
+              <span className="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {filaEspera.length}
+              </span>
+            )}
+          </button>
+
+          <p className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/60">
+            Atalhos Externos
+          </p>
+          <Link
+            to="/mural"
+            onClick={() => setSidebarOpen(false)}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-amber-300/80 hover:bg-amber-900/40 hover:text-white transition-all"
+          >
+            <Sparkles size={14} className="text-amber-400" />
+            <span>Ver Mural Geral</span>
+          </Link>
+          <Link
+            to="/"
+            onClick={() => setSidebarOpen(false)}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-amber-300/80 hover:bg-amber-900/40 hover:text-white transition-all"
+          >
+            <Pencil size={14} className="text-amber-400" />
+            <span>Portal Público</span>
+          </Link>
+        </nav>
+
+        <div className="p-4 border-t border-amber-900/40">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {currentUser?.name ? currentUser.name.charAt(0) : 'P'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-white text-xs font-semibold truncate">{currentUser?.name || 'Professor'}</p>
+                <p className="text-amber-400/70 text-[10px] truncate">{currentUser?.email || 'Professor'}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-1.5 text-amber-400/70 hover:text-red-400 hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+              title="Encerrar Sessão"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </div>
+      </aside>
 
       {/* Barra de Navegação Interna do Professor */}
       <div className="bg-white border-b border-gray-200/70">
