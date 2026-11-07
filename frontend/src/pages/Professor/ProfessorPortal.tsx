@@ -290,15 +290,13 @@ export default function ProfessorPortal() {
       if (res.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 4000);
+        carregarChamada(selectedTurmaId, selectedData);
       } else {
-        alert('Chamada registrada localmente com sucesso!');
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 4000);
+        const err = await res.json().catch(() => ({}));
+        alert('Erro ao salvar chamada: ' + (err.message || 'Tente novamente.'));
       }
     } catch {
-      alert('Chamada registrada localmente com sucesso!');
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 4000);
+      alert('Erro de conexão ao salvar chamada. Verifique sua conexão com a internet.');
     } finally {
       setSavingFreq(false);
     }

@@ -708,6 +708,7 @@ export default function AdminDashboard() {
         alert("Chamada salva com sucesso!");
         fetchAlertasFaltas();
         refreshTurmaAlunos();
+        fetchFrequencia(selectedTurmaFreq, selectedDataFreq);
       } else {
         const err = await res.json();
         alert("Erro ao salvar chamada: " + (err.message || "Erro desconhecido"));

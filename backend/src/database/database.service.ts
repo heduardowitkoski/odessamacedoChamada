@@ -410,8 +410,17 @@ export class DatabaseService implements OnModuleInit {
           updated = true;
         }
 
-        if (freqRes?.data && Array.isArray(freqRes.data) && freqRes.data.length > 0) {
-          this.memoryDb.frequencias = freqRes.data;
+        if (freqRes?.data && Array.isArray(freqRes.data)) {
+          // Mescla com as frequências existentes preservando dados locais
+          const mapLocais = new Map<string, Frequencia>();
+          for (const f of this.memoryDb.frequencias) {
+            mapLocais.set(`${f.aluno_id}_${f.data}`, f);
+          }
+          // Adiciona ou atualiza com os dados do Supabase
+          for (const fRemota of freqRes.data) {
+            mapLocais.set(`${fRemota.aluno_id}_${fRemota.data}`, fRemota);
+          }
+          this.memoryDb.frequencias = Array.from(mapLocais.values());
           updated = true;
         }
 
@@ -962,6 +971,20 @@ export class DatabaseService implements OnModuleInit {
     }
 
     this.persistToDiskAsync();
+
+    // Sincroniza falta justificada com o Supabase
+    try {
+      const client = this.supabaseService.getClient();
+      client
+        .from('frequencias')
+        .upsert(
+          [{ aluno_id: alunoId, data: dataStr, presente: false, justificativa: textoJust }],
+          { onConflict: 'aluno_id,data' }
+        )
+        .then(() => {})
+        .catch(() => {});
+    } catch {}
+
     return { success: true, message: 'Falta justificada com sucesso.' };
   }
 
@@ -1040,6 +1063,41 @@ export class DatabaseService implements OnModuleInit {
     }
 
     this.persistToDiskAsync();
+
+    // Sincroniza imediatamente com o banco Supabase na nuvem (se disponível)
+    try {
+      const client = this.supabaseService.getClient();
+      const payloadSupabase = registros.map((r) => {
+        const isPresente = r.status === 'PRESENTE';
+        const just = r.status === 'JUSTIFICADA'
+          ? (r.observacao ? `[JUSTIFICADA] ${r.observacao}` : '[JUSTIFICADA]')
+          : (r.observacao || null);
+
+        return {
+          aluno_id: r.aluno_id,
+          data: dataStr,
+          presente: isPresente,
+          justificativa: just,
+        };
+      });
+
+      client
+        .from('frequencias')
+        .upsert(payloadSupabase, { onConflict: 'aluno_id,data' })
+        .then(({ error }) => {
+          if (error) {
+            this.logger.warn('Aviso ao sincronizar frequências com Supabase: ' + error.message);
+          } else {
+            this.logger.log(`Frequências salvas no Supabase para data ${dataStr} (${payloadSupabase.length} alunos).`);
+          }
+        })
+        .catch((err) => {
+          this.logger.warn('Erro ao conectar ao Supabase para salvar frequências: ' + err?.message);
+        });
+    } catch (e: any) {
+      this.logger.warn('Aviso ao disparar persistência remota: ' + e?.message);
+    }
+
     return { success: true };
   }
 
