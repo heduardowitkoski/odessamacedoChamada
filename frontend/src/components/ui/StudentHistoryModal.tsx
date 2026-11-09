@@ -110,9 +110,9 @@ export default function StudentHistoryModal({ alunoId, onClose, onUpdate }: Stud
       <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-amber-100 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Cabeçalho do Modal */}
-        <div className="p-6 bg-gradient-to-r from-[#1C1300] to-[#302100] text-white flex items-start justify-between relative shrink-0">
+        <div className="p-4 sm:p-6 bg-gradient-to-r from-[#1C1300] to-[#302100] text-white flex items-start justify-between relative shrink-0">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-black text-xl shadow-lg shrink-0">
+            <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-lg shrink-0">
               {aluno?.aluno_nome?.charAt(0)?.toUpperCase() || 'A'}
             </div>
             <div>
@@ -148,29 +148,31 @@ export default function StudentHistoryModal({ alunoId, onClose, onUpdate }: Stud
         </div>
 
         {/* Abas Superiores */}
-        <div className="flex items-center justify-between px-6 border-b border-gray-100 bg-gray-50/70 shrink-0">
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between px-3 sm:px-6 border-b border-gray-100 bg-gray-50/70 shrink-0 overflow-x-auto">
+          <div className="flex gap-1.5 sm:gap-2">
             <button
               onClick={() => setActiveTab('faltas')}
-              className={`py-3.5 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+              className={`py-3 px-3 sm:px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'faltas'
                   ? 'border-amber-500 text-amber-700 bg-white shadow-2xs'
                   : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}
             >
               <Calendar size={15} />
-              Histórico Individual de Faltas & Chamadas
+              <span className="sm:hidden">Faltas & Chamadas</span>
+              <span className="hidden sm:inline">Histórico Individual de Faltas & Chamadas</span>
             </button>
             <button
               onClick={() => setActiveTab('ficha')}
-              className={`py-3.5 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+              className={`py-3 px-3 sm:px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'ficha'
                   ? 'border-amber-500 text-amber-700 bg-white shadow-2xs'
                   : 'border-transparent text-gray-500 hover:text-gray-900'
               }`}
             >
               <User size={15} />
-              Ficha Completa & Contato do Responsável
+              <span className="sm:hidden">Ficha & Contato</span>
+              <span className="hidden sm:inline">Ficha Completa & Contato do Responsável</span>
             </button>
           </div>
 
@@ -209,7 +211,7 @@ export default function StudentHistoryModal({ alunoId, onClose, onUpdate }: Stud
         )}
 
         {/* Conteúdo com Scroll */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5 sm:space-y-6">
           {loading ? (
             <div className="py-16 text-center flex flex-col items-center justify-center gap-3">
               <Loader2 size={32} className="animate-spin text-amber-500" />
@@ -222,7 +224,7 @@ export default function StudentHistoryModal({ alunoId, onClose, onUpdate }: Stud
           ) : (
             <>
               {/* Resumo Estatístico de Frequência do Aluno */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3">
                 <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
                   <span className="text-[11px] text-gray-500 block mb-0.5 font-medium">Aulas Registradas</span>
                   <p className="text-xl font-extrabold text-gray-900">{stats?.totalAulas || 0}</p>

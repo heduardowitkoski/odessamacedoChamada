@@ -292,26 +292,26 @@ function FullscreenLightbox({
       onMouseUp={handleMouseUp}
     >
       {/* Barra Superior de Controles */}
-      <div className="h-16 px-4 sm:px-6 flex items-center justify-between bg-black/60 border-b border-white/10 shrink-0 z-20">
-        <div className="flex items-center gap-3 overflow-hidden pr-2">
+      <div className="h-16 px-3 sm:px-6 flex items-center justify-between bg-black/60 border-b border-white/10 shrink-0 z-20 gap-2">
+        <div className="flex items-center gap-2.5 sm:gap-3 overflow-hidden pr-1 min-w-0 flex-1">
           <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
             <Palette size={16} />
           </div>
-          <div className="truncate">
-            <h3 className="text-white text-sm font-bold truncate">
+          <div className="truncate min-w-0">
+            <h3 className="text-white text-xs sm:text-sm font-bold truncate">
               {obra.titulo}
             </h3>
-            <p className="text-white/60 text-xs truncate">
+            <p className="text-white/60 text-[10px] sm:text-xs truncate">
               {obra.tecnica || 'Produção artística'} • {obra.turma_nome || 'Todas as Turmas'}
             </p>
           </div>
         </div>
 
         {/* Ferramentas de Zoom & Ações */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Indicador de fotos */}
           {images.length > 1 && (
-            <span className="text-xs font-semibold text-white/70 bg-white/10 px-2.5 py-1 rounded-lg mr-1 hidden sm:inline-block">
+            <span className="text-xs font-semibold text-white/70 bg-white/10 px-2 py-1 rounded-lg hidden sm:inline-block">
               Foto {currentIndex + 1} de {images.length}
             </span>
           )}
@@ -321,17 +321,17 @@ function FullscreenLightbox({
             type="button"
             onClick={handleZoomOut}
             disabled={zoom <= 0.6}
-            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer disabled:opacity-30"
+            className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer disabled:opacity-30"
             title="Reduzir Zoom (-)"
           >
-            <ZoomOut size={18} />
+            <ZoomOut size={16} />
           </button>
 
           {/* Nível de Zoom Atual */}
           <button
             type="button"
             onClick={handleResetZoom}
-            className="px-2.5 py-1 text-xs font-bold text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 rounded-lg transition-colors cursor-pointer"
+            className="px-2 py-1 text-[11px] sm:text-xs font-bold text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 rounded-lg transition-colors cursor-pointer"
             title="Clique para voltar para 100%"
           >
             {Math.round(zoom * 100)}%
@@ -342,10 +342,10 @@ function FullscreenLightbox({
             type="button"
             onClick={handleZoomIn}
             disabled={zoom >= 4}
-            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer disabled:opacity-30"
+            className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer disabled:opacity-30"
             title="Aumentar Zoom (+)"
           >
-            <ZoomIn size={18} />
+            <ZoomIn size={16} />
           </button>
 
           {/* Botão Restaurar 100% */}
@@ -353,30 +353,30 @@ function FullscreenLightbox({
             <button
               type="button"
               onClick={handleResetZoom}
-              className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer hidden xs:inline-flex"
               title="Restaurar tamanho original"
             >
-              <RotateCcw size={17} />
+              <RotateCcw size={15} />
             </button>
           )}
 
-          <div className="w-[1px] h-6 bg-white/15 mx-1" />
+          <div className="w-[1px] h-5 bg-white/15 mx-0.5 sm:mx-1" />
 
           {/* Botão Fechar */}
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-white/80 hover:text-white hover:bg-red-500/80 rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-red-500/80 rounded-xl transition-colors cursor-pointer"
             title="Fechar (Esc)"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
       </div>
 
       {/* Área Central: Foto Completa sem Cortes com Suporte a Zoom & Pan */}
       <div
-        className="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8"
+        className="flex-1 relative overflow-hidden flex items-center justify-center p-3 sm:p-8"
         onMouseDown={handleMouseDown}
         style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
       >
@@ -402,10 +402,10 @@ function FullscreenLightbox({
           <button
             type="button"
             onClick={handlePrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/70 hover:bg-black/95 text-white flex items-center justify-center transition-all shadow-xl cursor-pointer z-10 border border-white/10"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-black/70 hover:bg-black/95 text-white flex items-center justify-center transition-all shadow-xl cursor-pointer z-10 border border-white/10"
             title="Foto anterior (Seta esquerda)"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={20} />
           </button>
         )}
 
@@ -414,10 +414,10 @@ function FullscreenLightbox({
           <button
             type="button"
             onClick={handleNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/70 hover:bg-black/95 text-white flex items-center justify-center transition-all shadow-xl cursor-pointer z-10 border border-white/10"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-black/70 hover:bg-black/95 text-white flex items-center justify-center transition-all shadow-xl cursor-pointer z-10 border border-white/10"
             title="Próxima foto (Seta direita)"
           >
-            <ChevronRight size={24} />
+            <ChevronRight size={20} />
           </button>
         )}
       </div>
@@ -643,15 +643,15 @@ export default function MuralBoard({
   };
 
   return (
-    <div className={embedded ? '' : 'p-6 max-w-7xl mx-auto'}>
+    <div className={embedded ? '' : 'p-3.5 sm:p-6 max-w-7xl mx-auto'}>
       {/* Top Header & Controles */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl text-[#1C1300]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg sm:text-xl text-[#1C1300]">
               Galeria de Obras & Produções dos Alunos
             </h2>
-            <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
+            <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0">
               {items.length} {items.length === 1 ? 'obra' : 'obras'}
             </span>
           </div>
@@ -660,14 +660,14 @@ export default function MuralBoard({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
           {!fixedTurmaId && (
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-xs">
+            <div className="flex-1 sm:flex-initial flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-xs">
               <Filter size={14} className="text-gray-400 shrink-0" />
               <select
                 value={turmaFilter}
                 onChange={(e) => setTurmaFilter(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-gray-700 focus:outline-none cursor-pointer"
+                className="w-full bg-transparent text-xs font-semibold text-gray-700 focus:outline-none cursor-pointer"
               >
                 <option value="todas">Todas as Turmas</option>
                 {turmasList
@@ -684,7 +684,7 @@ export default function MuralBoard({
           {canPublish && (
             <button
               onClick={handleOpenCreate}
-              className="px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+              className="w-full sm:w-auto justify-center px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <Plus size={16} />
               Publicar Nova Obra
@@ -699,7 +699,7 @@ export default function MuralBoard({
           Carregando obras do mural...
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-dashed border-amber-200 p-12 text-center">
+        <div className="bg-white rounded-3xl border border-dashed border-amber-200 p-8 sm:p-12 text-center">
           <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-3 text-amber-500">
             <Palette size={24} />
           </div>
@@ -721,7 +721,7 @@ export default function MuralBoard({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
           {items.map((obra) => {
             return (
               <div
@@ -736,7 +736,7 @@ export default function MuralBoard({
                 />
 
                 {/* Conteúdo Descritivo da Obra */}
-                <div className="p-5 flex-1 flex flex-col justify-between">
+                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
                   <div>
                     {/* Tags: Turma e Técnica */}
                     <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
@@ -754,7 +754,7 @@ export default function MuralBoard({
                         )}
                       </div>
 
-                      <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
+                      <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1 shrink-0">
                         <Calendar size={11} />
                         {new Date(obra.created_at).toLocaleDateString('pt-BR')}
                       </span>
@@ -772,17 +772,17 @@ export default function MuralBoard({
                   </div>
 
                   {/* Rodapé: Autor e Ações (Visualizar / Editar / Excluir) */}
-                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold">
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2 text-xs text-gray-400">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold shrink-0">
                         {obra.autor_nome?.charAt(0) || 'P'}
                       </div>
-                      <span className="text-[11px] font-medium text-gray-600 truncate max-w-[120px]">
+                      <span className="text-[11px] font-medium text-gray-600 truncate max-w-[90px] xs:max-w-[130px] sm:max-w-[150px]">
                         {obra.autor_nome}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       {/* Botão de Ver Completa / Zoom */}
                       <button
                         type="button"
@@ -804,7 +804,7 @@ export default function MuralBoard({
                             className="p-1.5 text-gray-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-semibold"
                           >
                             <Edit3 size={13} />
-                            <span>Editar</span>
+                            <span className="hidden xs:inline">Editar</span>
                           </button>
 
                           <button
@@ -828,12 +828,12 @@ export default function MuralBoard({
 
       {/* Modal: Publicar / Editar Obra com Upload do Computador + Link */}
       {showModalNovo && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xl rounded-3xl p-6 sm:p-7 shadow-2xl border border-amber-100 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white w-full max-w-xl rounded-3xl p-4 sm:p-7 shadow-2xl border border-amber-100 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             {/* Header do Modal */}
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center font-bold shadow-xs">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
                   {editingItem ? <Edit3 size={18} /> : <Plus size={18} />}
                 </div>
                 <div>
@@ -970,7 +970,7 @@ export default function MuralBoard({
                     <LinkIcon size={12} className="text-gray-400" />
                     Ou adicione por link da web (URL)
                   </label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <input
                       type="url"
                       value={novoLinkInput}
@@ -988,7 +988,7 @@ export default function MuralBoard({
                       type="button"
                       onClick={handleAddLinkUrl}
                       disabled={!novoLinkInput.trim()}
-                      className="h-9 px-3.5 bg-neutral-800 hover:bg-black text-white rounded-xl text-xs font-semibold disabled:opacity-40 transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                      className="w-full sm:w-auto h-9 px-3.5 bg-neutral-800 hover:bg-black text-white rounded-xl text-xs font-semibold disabled:opacity-40 transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1"
                     >
                       <Plus size={14} /> Adicionar Link
                     </button>

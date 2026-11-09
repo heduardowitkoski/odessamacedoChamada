@@ -2,8 +2,15 @@
 
 export function getApiBase(): string {
   if (typeof window !== 'undefined') {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:3000';
+    const host = window.location.hostname;
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.') ||
+      host.startsWith('172.')
+    ) {
+      return `http://${host}:3000`;
     }
   }
   return (import.meta as any).env?.VITE_API_URL || 'https://odessamacedochamada.onrender.com';
@@ -58,22 +65,21 @@ export interface AlunoStats {
 export interface HistoricoItem {
   id: string;
   data: string;
-  presente: boolean;
   status: 'PRESENTE' | 'FALTA' | 'JUSTIFICADA';
   observacao?: string;
-  created_at?: string;
 }
 
 export interface AlunoComStats extends Aluno {
   stats: AlunoStats;
+  historico: HistoricoItem[];
 }
 
 export interface TurmaAlunosResumo {
   turma: Turma;
-  alunos: AlunoComStats[];
   totalAlunos: number;
-  ativos: number;
-  fila: number;
+  capacidade: number;
+  mediaFrequencia: number;
+  alunos: AlunoComStats[];
 }
 
 export interface AlunoHistoricoResponse {
@@ -82,104 +88,69 @@ export interface AlunoHistoricoResponse {
   historico: HistoricoItem[];
 }
 
-// Métodos da API
-export async function fetchTurmas(): Promise<Turma[]> {
-  const res = await fetch(`${getApiBase()}/turmas`);
-  if (!res.ok) throw new Error('Falha ao buscar turmas');
-  return res.json();
+export interface AuditLog {
+  id: string;
+  created_at: string;
+  acao: string;
+  detalhes?: string;
+  aluno_nome?: string;
+  turma_nome?: string;
+  autor_nome?: string;
+  autor_email?: string;
+  autor_role?: string;
+  categoria?: string;
 }
 
-export async function fetchAlunos(): Promise<Aluno[]> {
-  const res = await fetch(`${getApiBase()}/alunos`);
-  if (!res.ok) throw new Error('Falha ao buscar alunos');
-  return res.json();
-}
+// ----------------------------------------------------------------------
+// Métodos de API
+// ----------------------------------------------------------------------
 
 export async function fetchAlunosPorTurmaComStats(turmaId: string): Promise<TurmaAlunosResumo> {
-  const res = await fetch(`${getApiBase()}/frequencias/turma/${turmaId}/alunos-resumo`);
-  if (!res.ok) throw new Error('Falha ao buscar alunos da turma');
+  const base = getApiBase();
+  const res = await fetch(`${base}/turmas/${turmaId}/alunos-resumo`);
+  if (!res.ok) {
+    throw new Error('Falha ao carregar alunos e estatísticas da turma');
+  }
   return res.json();
 }
 
 export async function fetchHistoricoAluno(alunoId: string): Promise<AlunoHistoricoResponse> {
-  const res = await fetch(`${getApiBase()}/frequencias/aluno/${alunoId}`);
-  if (!res.ok) throw new Error('Falha ao buscar histórico do aluno');
+  const base = getApiBase();
+  const res = await fetch(`${base}/alunos/${alunoId}/historico`);
+  if (!res.ok) {
+    throw new Error('Falha ao carregar histórico do aluno');
+  }
   return res.json();
 }
 
-export async function justificarFalta(alunoId: string, dataStr: string, observacao: string) {
-  const res = await fetch(`${getApiBase()}/frequencias/justificar`, {
-    method: 'POST',
+export async function justificarFalta(alunoId: string, data: string, justificativa: string): Promise<{ success: boolean; message: string }> {
+  const base = getApiBase();
+  const res = await fetch(`${base}/frequencias/justificar`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ aluno_id: alunoId, data: dataStr, observacao }),
-  });
-  if (!res.ok) throw new Error('Falha ao justificar falta');
-  return res.json();
-}
-
-export async function fetchAlertasFaltas() {
-  const res = await fetch(`${getApiBase()}/frequencias/alertas`);
-  if (!res.ok) return [];
-  return res.json();
-}
-
-export async function salvarLoteFrequencia(turmaId: string, dataStr: string, registros: any[]) {
-  const res = await fetch(`${getApiBase()}/frequencias/batch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      turma_id: turmaId,
-      data: dataStr,
-      registros,
-    }),
+    body: JSON.stringify({ aluno_id: alunoId, data, justificativa }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Falha ao salvar frequências');
+    throw new Error(err.message || 'Erro ao justificar falta');
   }
   return res.json();
-}
-
-export interface AuditLog {
-  id: string;
-  acao: string;
-  detalhes: string;
-  autor_nome?: string;
-  autor_email?: string;
-  autor_role?: string;
-  categoria?: 'turma' | 'aluno' | 'fila' | 'frequencia' | 'professor' | 'admin' | 'sistema';
-  ip?: string;
-  created_at: string;
 }
 
 export async function fetchLogs(): Promise<AuditLog[]> {
-  const res = await fetch(`${getApiBase()}/admin/logs`);
-  if (!res.ok) return [];
+  const base = getApiBase();
+  const res = await fetch(`${base}/logs`);
+  if (!res.ok) {
+    throw new Error('Falha ao buscar logs de auditoria');
+  }
   return res.json();
 }
 
-export async function registrarAcaoLog(logData: {
-  acao: string;
-  detalhes: string;
-  autor_nome?: string;
-  autor_email?: string;
-  autor_role?: string;
-  categoria?: 'turma' | 'aluno' | 'fila' | 'frequencia' | 'professor' | 'admin' | 'sistema';
-}) {
-  try {
-    await fetch(`${getApiBase()}/admin/logs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(logData),
-    });
-  } catch (err) {
-    console.warn('Erro ao salvar log de auditoria:', err);
-  }
-}
-
 export async function exportarLogsCSV(): Promise<string> {
-  const res = await fetch(`${getApiBase()}/admin/logs/exportar`);
-  if (!res.ok) throw new Error('Falha ao exportar logs');
-  const data = await res.json();
-  return data.csv;
+  const base = getApiBase();
+  const res = await fetch(`${base}/logs/exportar-csv`);
+  if (!res.ok) {
+    throw new Error('Falha ao exportar logs em CSV');
+  }
+  return res.text();
 }

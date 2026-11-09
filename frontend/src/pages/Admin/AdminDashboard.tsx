@@ -45,7 +45,7 @@ export default function AdminDashboard() {
   const [selectedAluno, setSelectedAluno] = useState<any>(null);
   const [activeMenu, setActiveMenu] = useState("Alunos");
   const [activeTab, setActiveTab] = useState<"alunos" | "fila">("alunos");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(typeof window !== "undefined" ? window.innerWidth >= 1024 : false);
 
   // Estados para Módulo de Frequência
   const [selectedTurmaFreq, setSelectedTurmaFreq] = useState<string>("");
@@ -280,6 +280,18 @@ export default function AdminDashboard() {
       }
     }
   };
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     fetchAlunos();
@@ -1037,10 +1049,18 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif] flex overflow-x-hidden">
+      {/* Backdrop no mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 lg:hidden transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`bg-[#1C1300] flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out ${
-          sidebarOpen ? "w-60 opacity-100" : "w-0 -translate-x-full opacity-0 pointer-events-none overflow-hidden"
+        className={`bg-[#1C1300] flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-50 lg:static lg:z-auto ${
+          sidebarOpen ? "w-64 translate-x-0 opacity-100 shadow-2xl lg:shadow-none" : "-translate-x-full lg:translate-x-0 lg:w-0 lg:opacity-0 pointer-events-none overflow-hidden"
         }`}
       >
         <div className="h-16 flex items-center justify-between px-5 border-b border-amber-900/40 min-w-[240px]">
@@ -1073,6 +1093,9 @@ export default function AdminDashboard() {
                 } else if (label === "Alunos") {
                   setActiveTab("alunos");
                 }
+                if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                  setSidebarOpen(false);
+                }
               }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeMenu === label
@@ -1094,7 +1117,7 @@ export default function AdminDashboard() {
         <div className="p-4 border-t border-amber-900/40 min-w-[240px]">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setActiveMenu("Configurações")}
+              onClick={() => { setActiveMenu("Configurações"); if (typeof window !== "undefined" && window.innerWidth < 1024) setSidebarOpen(false); }}
               className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer group"
               title="Ir para Configurações / Editar meus dados"
             >
@@ -1127,7 +1150,7 @@ export default function AdminDashboard() {
 
       {/* Conteúdo */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-amber-100 h-16 flex items-center px-4 sm:px-8 gap-4 flex-shrink-0 shadow-sm">
+        <header className="bg-white border-b border-amber-100 h-16 flex items-center px-3 sm:px-8 gap-2 sm:gap-4 flex-shrink-0 shadow-sm">
           <button
             onClick={() => setSidebarOpen((prev) => !prev)}
             className="p-2 text-gray-600 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors cursor-pointer"
@@ -1166,8 +1189,8 @@ export default function AdminDashboard() {
               )}
             </button>
             {activeMenu !== "Relatórios" && (
-              <button className="flex items-center gap-2 text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50 cursor-pointer" onClick={handleExportCSV}>
-                <Download size={15} /> Exportar CSV
+              <button className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 hover:bg-gray-50 cursor-pointer shrink-0" onClick={handleExportCSV} title="Exportar planilha CSV">
+                <Download size={14} /> <span className="hidden sm:inline">Exportar CSV</span>
               </button>
             )}
             {activeMenu === "Turmas" ? (
@@ -1211,16 +1234,16 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-7">
+        <div className="flex-1 overflow-auto p-3.5 sm:p-7">
           {/* Stats Principais (exibido na maioria dos módulos) */}
           {activeMenu !== "Relatórios" && (
-            <div className="grid grid-cols-4 gap-5 mb-7">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-5 sm:mb-7">
               {stats.map(({ label, value, icon, color, bg }) => (
-                <div key={label} className="bg-white rounded-2xl p-5 border border-amber-50 shadow-sm flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center ${color}`}>{icon}</div>
-                  <div>
-                    <p className="text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300]">{value}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                <div key={label} className="bg-white rounded-2xl p-3 sm:p-5 border border-amber-50 shadow-sm flex items-center gap-2.5 sm:gap-4 min-w-0">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${bg} flex items-center justify-center ${color} shrink-0`}>{icon}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-lg sm:text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300] truncate">{value}</p>
+                    <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 truncate">{label}</p>
                   </div>
                 </div>
               ))}
@@ -1520,7 +1543,7 @@ export default function AdminDashboard() {
               /* GRADE GERAL DE TODAS AS TURMAS */
               <div className="space-y-6">
                 <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
                     <div>
                       <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
                         Turmas Cadastradas ({turmasDb.length})
@@ -1878,7 +1901,7 @@ export default function AdminDashboard() {
 
               {/* Tabela de Professores */}
               <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
                   <div>
                     <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
                       Corpo Docente ({professores.length})
@@ -1998,7 +2021,7 @@ export default function AdminDashboard() {
             /* --- MÓDULO DE GESTÃO DE ADMINISTRADORES --- */
             <div className="space-y-6">
               <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
                   <div>
                     <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
                       Administradores do Sistema ({admins.length})
@@ -2376,12 +2399,12 @@ export default function AdminDashboard() {
             </div>
           ) : (
             /* --- VISÃO DE ALUNOS & FILA DE ESPERA --- */
-            <div className="flex gap-6">
+            <div className="flex flex-col lg:flex-row gap-6">
               {/* Tabela principal */}
-              <div className="flex-1 space-y-6">
+              <div className="flex-1 min-w-0 space-y-6">
                 <div className="bg-white rounded-2xl border border-amber-50 shadow-sm overflow-hidden">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
                       {[
                         { id: "alunos" as const, label: "Alunos matriculados", count: alunosAtivos.length },
                         { id: "fila" as const, label: "Fila de espera", count: alunosFila.length },
@@ -2389,7 +2412,7 @@ export default function AdminDashboard() {
                         <button
                           key={id}
                           onClick={() => setActiveTab(id)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
                             activeTab === id ? "bg-amber-500 text-white" : "text-gray-500 hover:bg-gray-100"
                           }`}
                         >
@@ -2403,7 +2426,8 @@ export default function AdminDashboard() {
                   </div>
 
                   {activeTab === "alunos" ? (
-                    <table className="w-full">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[500px]">
                       <thead>
                         <tr className="border-b border-gray-100">
                           {["Aluno", "Turma", "Criado em", "Status", ""].map((h) => (
@@ -2464,6 +2488,7 @@ export default function AdminDashboard() {
                         )}
                       </tbody>
                     </table>
+                    </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
@@ -2608,7 +2633,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Ficha lateral */}
-              <div className="w-72 flex-shrink-0">
+              <div className="w-full lg:w-72 flex-shrink-0">
                 {selectedAluno ? (
                 <div className="bg-white rounded-2xl border border-amber-50 shadow-sm overflow-hidden sticky top-0">
                   <div className="p-5 border-b border-gray-100">

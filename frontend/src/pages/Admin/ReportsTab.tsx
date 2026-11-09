@@ -140,9 +140,9 @@ export default function ReportsTab({ turmas, alertasFaltas }: ReportsTabProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
+          <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base sm:text-lg text-[#1C1300]">
             Relatórios e Indicadores
           </h2>
           <p className="text-xs text-gray-500">
@@ -151,7 +151,7 @@ export default function ReportsTab({ turmas, alertasFaltas }: ReportsTabProps) {
         </div>
         <button
           onClick={carregarResumo}
-          className="flex items-center gap-2 text-xs text-gray-600 font-semibold border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50 transition-colors"
+          className="self-start sm:self-auto flex items-center gap-2 text-xs text-gray-600 font-semibold border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50 transition-colors cursor-pointer"
         >
           <RefreshCw size={14} className={carregando ? "animate-spin" : ""} /> Atualizar
         </button>
@@ -163,19 +163,19 @@ export default function ReportsTab({ turmas, alertasFaltas }: ReportsTabProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
         {cards.map(({ label, value, icon, color, bg }) => (
-          <div key={label} className="bg-white rounded-2xl p-5 border border-amber-50 shadow-sm flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center ${color}`}>{icon}</div>
-            <div>
-              <p className="text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300]">{value}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+          <div key={label} className="bg-white rounded-2xl p-4 sm:p-5 border border-amber-50 shadow-sm flex items-center gap-3 sm:gap-4">
+            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl shrink-0 ${bg} flex items-center justify-center ${color}`}>{icon}</div>
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[#1C1300] truncate">{value}</p>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 truncate">{label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
+      <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-4 sm:p-6">
         <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
           <div>
             <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
@@ -198,20 +198,20 @@ export default function ReportsTab({ turmas, alertasFaltas }: ReportsTabProps) {
         ) : (
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dadosGrafico} margin={{ top: 8, right: 16, left: -12, bottom: 24 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis dataKey="nome" tick={{ fontSize: 11, fill: "#6B7280" }} interval={0} angle={-15} textAnchor="end" height={60} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#6B7280" }} unit="%" />
+              <BarChart data={dadosGrafico} barSize={32}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#FEF9EC" />
+                <XAxis dataKey="nome" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                <YAxis unit="%" domain={[0, 100]} tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  formatter={(value) => [`${value}%`, "Frequência"]}
-                  labelFormatter={(label) => `Turma: ${label}`}
-                  contentStyle={{ borderRadius: 12, border: "1px solid #FDE68A", fontSize: 12 }}
+                  formatter={(val: any) => [`${val}%`, "Frequência"]}
+                  contentStyle={{ borderRadius: 12, border: "1px solid #FDE68A", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)" }}
+                  cursor={{ fill: "#FFFBEB" }}
                 />
-                <Bar dataKey="frequencia" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                  {dadosGrafico.map((entrada) => (
+                <Bar dataKey="frequencia" radius={[6, 6, 0, 0]}>
+                  {dadosGrafico.map((entry) => (
                     <Cell
-                      key={entrada.nome}
-                      fill={entrada.frequencia >= 75 ? "#F59E0B" : "#DC2626"}
+                      key={entry.nome}
+                      fill={entry.frequencia >= 75 ? "#10B981" : "#EF4444"}
                     />
                   ))}
                 </Bar>
@@ -219,53 +219,9 @@ export default function ReportsTab({ turmas, alertasFaltas }: ReportsTabProps) {
             </ResponsiveContainer>
           </div>
         )}
-
-        {resumo && resumo.turmas.length > 0 && (
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400">
-                  <th className="px-3 py-2">Turma</th>
-                  <th className="px-3 py-2 text-center">Alunos</th>
-                  <th className="px-3 py-2 text-center">Aulas</th>
-                  <th className="px-3 py-2 text-center">Presenças</th>
-                  <th className="px-3 py-2 text-center">Faltas</th>
-                  <th className="px-3 py-2 text-center">Justificadas</th>
-                  <th className="px-3 py-2 text-center">Frequência</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 text-sm">
-                {resumo.turmas.map((turma) => (
-                  <tr key={turma.turma_id} className="hover:bg-amber-50/30 transition-colors">
-                    <td className="px-3 py-3">
-                      <p className="font-semibold text-gray-900">{turma.nome}</p>
-                      <p className="text-[11px] text-gray-400">{turma.turno}</p>
-                    </td>
-                    <td className="px-3 py-3 text-center text-gray-600">{turma.totalAlunos}</td>
-                    <td className="px-3 py-3 text-center text-gray-600">{turma.totalRegistros}</td>
-                    <td className="px-3 py-3 text-center text-emerald-600 font-semibold">{turma.presencas}</td>
-                    <td className="px-3 py-3 text-center text-red-600 font-semibold">{turma.faltas}</td>
-                    <td className="px-3 py-3 text-center text-amber-600 font-semibold">{turma.justificadas}</td>
-                    <td className="px-3 py-3 text-center">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          turma.frequenciaPercentual >= 75
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-red-50 text-red-700 border border-red-200"
-                        }`}
-                      >
-                        {turma.frequenciaPercentual}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-6">
+      <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-4 sm:p-6">
         <div className="mb-5 pb-4 border-b border-gray-100">
           <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
             Exportar Relatórios
@@ -310,56 +266,56 @@ export default function ReportsTab({ turmas, alertasFaltas }: ReportsTabProps) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="border border-gray-200 rounded-2xl p-5">
+          <div className="border border-gray-200 rounded-2xl p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
                 <BarChart2 size={18} />
               </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900">Relatório de Frequência</p>
-                <p className="text-[11px] text-gray-500">Presenças, faltas e justificativas por aluno.</p>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900 truncate">Relatório de Frequência</p>
+                <p className="text-[11px] text-gray-500 truncate">Presenças, faltas e justificativas por aluno.</p>
               </div>
             </div>
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => baixar("frequencias", `/relatorios/frequencias/csv?${filtrosFrequencia()}`, "csv")}
                 disabled={baixando !== null}
-                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 hover:bg-emerald-100 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {baixando === "frequencias" ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />} CSV
               </button>
               <button
                 onClick={() => baixar("frequencias", `/relatorios/frequencias/pdf?${filtrosFrequencia()}`, "pdf")}
                 disabled={baixando !== null}
-                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 hover:bg-red-100 transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 hover:bg-red-100 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {baixando === "frequencias" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
               </button>
             </div>
           </div>
 
-          <div className="border border-gray-200 rounded-2xl p-5">
+          <div className="border border-gray-200 rounded-2xl p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
                 <Clock size={18} />
               </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900">Lista de Espera</p>
-                <p className="text-[11px] text-gray-500">Candidatos aguardando vaga, por ordem de inscrição.</p>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900 truncate">Lista de Espera</p>
+                <p className="text-[11px] text-gray-500 truncate">Candidatos aguardando vaga, por ordem de inscrição.</p>
               </div>
             </div>
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => baixar("fila_espera", "/relatorios/fila-espera/csv", "csv")}
                 disabled={baixando !== null}
-                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 hover:bg-emerald-100 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {baixando === "fila_espera" ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />} CSV
               </button>
               <button
                 onClick={() => baixar("fila_espera", "/relatorios/fila-espera/pdf", "pdf")}
                 disabled={baixando !== null}
-                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 hover:bg-red-100 transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 hover:bg-red-100 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {baixando === "fila_espera" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} PDF
               </button>

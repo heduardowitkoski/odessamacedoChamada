@@ -107,14 +107,19 @@ export default function PortalScreen() {
     <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif]">
       {/* Header */}
       <header className="bg-white border-b border-amber-100 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-[1440px] mx-auto px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-3">
+          <Link to="/" className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md shrink-0">
               <Pencil size={16} className="text-white" />
             </div>
-            <div className="leading-tight">
-              <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-sm block">Centro de Desenvolvimento da Expressão</span>
-              <span className="text-amber-600 text-xs font-semibold">Odessa Macedo · Aulas de Desenho</span>
+            <div className="leading-tight min-w-0">
+              <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-xs sm:text-sm block truncate">
+                <span className="hidden sm:inline">Centro de Desenvolvimento da Expressão</span>
+                <span className="sm:hidden">CDE Odessa Macedo</span>
+              </span>
+              <span className="text-amber-600 text-[11px] sm:text-xs font-semibold hidden sm:block truncate">
+                Odessa Macedo · Aulas de Desenho
+              </span>
             </div>
           </Link>
 
@@ -128,15 +133,16 @@ export default function PortalScreen() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               id="btn-verificar-fila"
               onClick={() => setShowFilaModal(true)}
-              className="px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors cursor-pointer"
+              className="px-2.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors cursor-pointer whitespace-nowrap"
             >
-              Verificar posição na fila
+              <span className="hidden sm:inline">Verificar posição na fila</span>
+              <span className="sm:hidden">Ver fila</span>
             </button>
-            <Link to="/login" className="px-5 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm">
+            <Link to="/login" className="px-3.5 sm:px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm whitespace-nowrap">
               Login
             </Link>
           </div>
@@ -149,22 +155,22 @@ export default function PortalScreen() {
           backgroundImage: "repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)",
           backgroundSize: "30px 30px"
         }} />
-        <div className="max-w-[1440px] mx-auto px-8 py-16 flex flex-col md:flex-row items-center gap-12 relative">
-          <div className="flex-1">
-            <span className="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/30 text-amber-200 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 py-10 sm:py-16 flex flex-col md:flex-row items-center gap-8 sm:gap-12 relative">
+          <div className="flex-1 w-full">
+            <span className="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/30 text-amber-200 text-xs font-semibold px-3 py-1.5 rounded-full mb-4 sm:mb-5">
               <Award size={12} /> Escola pública de artes
             </span>
-            <h1 className="font-['Plus_Jakarta_Sans',sans-serif] text-4xl md:text-5xl font-extrabold leading-tight mb-4">
+            <h1 className="font-['Plus_Jakarta_Sans',sans-serif] text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight mb-3 sm:mb-4">
               Aulas de Desenho<br />
               <span className="text-amber-300">para todas as idades</span>
             </h1>
-            <p className="text-amber-100/80 text-base max-w-lg mb-8 leading-relaxed">
+            <p className="text-amber-100/80 text-sm sm:text-base max-w-lg mb-6 sm:mb-8 leading-relaxed">
               Turmas organizadas por faixa etária, do Infantil ao Melhor Idade. Verifique as vagas disponíveis e faça sua inscrição ou entre na fila de espera.
             </p>
             <div className="flex gap-3 flex-wrap">
               <button
                 onClick={() => setShowFilaModal(true)}
-                className="px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <ListOrdered size={16} /> Consultar fila de espera
               </button>
@@ -174,26 +180,26 @@ export default function PortalScreen() {
       </section>
 
       {/* Filters & Single Inscription Action */}
-      <section className="max-w-[1440px] mx-auto px-8 py-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1">
-            <div className="relative">
+      <section className="max-w-[1440px] mx-auto px-4 sm:px-8 py-4 sm:py-6">
+        <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center flex-1">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
               <input
                 type="text"
                 placeholder="Buscar turma ou turno..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-11 pl-10 pr-4 rounded-xl border border-amber-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white w-64"
+                className="h-11 pl-10 pr-4 rounded-xl border border-amber-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white w-full"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter size={14} className="text-gray-400" />
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0">
+              <Filter size={14} className="text-gray-400 shrink-0" />
               {filters.map((f) => (
                 <button
                   key={f}
                   onClick={() => setActiveFilter(f)}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
                     activeFilter === f
                       ? "bg-amber-500 text-white shadow-md"
                       : "bg-white text-gray-600 border border-gray-200 hover:border-amber-300 hover:text-amber-700"
@@ -207,7 +213,7 @@ export default function PortalScreen() {
 
           <Link
             to="/inscrever"
-            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-2 shrink-0 cursor-pointer"
+            className="w-full sm:w-auto justify-center px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-2 shrink-0 cursor-pointer"
           >
             <Plus size={16} />
             <span>Fazer Inscrição</span>
@@ -216,7 +222,7 @@ export default function PortalScreen() {
       </section>
 
       {/* Turmas grid */}
-      <main className="max-w-[1440px] mx-auto px-8 pb-16">
+      <main className="max-w-[1440px] mx-auto px-4 sm:px-8 pb-16">
         <div className="flex gap-8">
           <div className="flex-1">
             <p className="text-sm text-gray-400 mb-5">
@@ -228,7 +234,7 @@ export default function PortalScreen() {
             ) : displayed.length === 0 ? (
                <div className="text-gray-500 py-10 text-center bg-white rounded-2xl border border-dashed border-gray-300">Nenhuma turma encontrada. Cadastre no painel admin!</div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 {displayed.map((turma) => {
                   const getColor = (nome?: string) => {
                     if (!nome) return "amber";
@@ -248,18 +254,18 @@ export default function PortalScreen() {
                     <div key={turma.id} className={`bg-white rounded-2xl border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all ${isFull ? "border-gray-200" : c.accent}`}>
                       <div className={`h-2 rounded-t-2xl ${c.dot}`} />
 
-                      <div className="p-5">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-base leading-tight">{turma.nome}</h3>
+                      <div className="p-4 sm:p-5">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[#1C1300] text-sm sm:text-base leading-tight">{turma.nome}</h3>
                             <span className={`inline-block mt-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full ${c.badge} ${c.badgeText}`}>
                               {turma.turno}
                             </span>
                           </div>
                           {isFull ? (
-                            <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full whitespace-nowrap">Turma cheia</span>
+                            <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">Turma cheia</span>
                           ) : (
-                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
                               Há vagas
                             </span>
                           )}
@@ -268,8 +274,8 @@ export default function PortalScreen() {
                         <p className="text-xs text-gray-500 leading-relaxed mb-4">{MOCK_EXTRAS.descricao}</p>
 
                         <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                          <BookOpen size={12} />
-                          {turma.turno}
+                          <BookOpen size={12} className="shrink-0" />
+                          <span className="truncate">{turma.turno}</span>
                         </div>
                       </div>
                     </div>
@@ -284,10 +290,10 @@ export default function PortalScreen() {
       {/* Modal: Verificar posição na fila */}
       {showFilaModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-amber-100">
-            <div className="flex items-center justify-between mb-5">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-amber-100">
+            <div className="flex items-center justify-between mb-4 sm:mb-5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
                   <ListOrdered size={16} />
                 </div>
                 <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
@@ -296,7 +302,7 @@ export default function PortalScreen() {
               </div>
               <button
                 onClick={() => { setShowFilaModal(false); setFilaErro(""); setFilaEmail(""); }}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -319,7 +325,7 @@ export default function PortalScreen() {
               <button
                 type="submit"
                 disabled={filaLoading}
-                className="w-full h-10 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full h-10 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {filaLoading ? <><Loader2 size={14} className="animate-spin" /> Verificando...</> : "Acessar minha conta"}
               </button>

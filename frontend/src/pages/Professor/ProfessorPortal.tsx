@@ -601,12 +601,12 @@ export default function ProfessorPortal() {
       </div>
 
       {/* Conteúdo Principal */}
-      <main className="max-w-7xl mx-auto px-6 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {/* ABA 1: DIÁRIO DE CHAMADA */}
         {activeTab === 'frequencia' && (
           <div className="space-y-6">
             {/* Card de Controle da Chamada */}
-            <div className="bg-white rounded-3xl border border-amber-100 shadow-xs p-6">
+            <div className="bg-white rounded-3xl border border-amber-100 shadow-xs p-4 sm:p-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
@@ -664,7 +664,7 @@ export default function ProfessorPortal() {
 
             {/* Lista dos Alunos para Chamada */}
             <div className="bg-white rounded-3xl border border-amber-100 shadow-xs overflow-hidden">
-              <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm text-[#1C1300]">
                     Lista de Presença · {turmaAtual?.nome || 'Turma Selecionada'}

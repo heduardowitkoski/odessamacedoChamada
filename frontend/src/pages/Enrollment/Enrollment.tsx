@@ -716,7 +716,7 @@ export default function EnrollmentScreen() {
         </div>
       </header>
 
-      <div className="max-w-[1440px] mx-auto px-8 py-10">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 py-6 sm:py-10">
         <div className="mb-7">
           <h1 className="font-['Plus_Jakarta_Sans',sans-serif] text-3xl font-extrabold text-[#1C1300] mb-1">
             Inscrição nas Aulas de Desenho
@@ -739,7 +739,7 @@ export default function EnrollmentScreen() {
           {/* Formulário Principal */}
           <div className="flex-1 max-w-3xl">
             {/* Stepper com apenas os números */}
-            <div className="flex items-center justify-center mb-8 px-4">
+            <div className="flex items-center justify-center mb-6 sm:mb-8 px-2 sm:px-4">
               {steps.map((_s, i) => {
                 const isCompleted = i < step;
                 const isCurrent = i === step;
@@ -752,7 +752,7 @@ export default function EnrollmentScreen() {
                       title={`Etapa ${i + 1}`}
                     >
                       <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all shrink-0 ${
                           isCompleted
                             ? "bg-green-500 text-white"
                             : isCurrent
@@ -764,14 +764,14 @@ export default function EnrollmentScreen() {
                       </div>
                     </button>
                     {i < steps.length - 1 && (
-                      <div className={`w-16 sm:w-28 h-0.5 mx-3 ${i < step ? "bg-green-400" : "bg-gray-200"}`} />
+                      <div className={`w-6 sm:w-28 h-0.5 mx-1.5 sm:mx-3 ${i < step ? "bg-green-400" : "bg-gray-200"}`} />
                     )}
                   </div>
                 );
               })}
             </div>
 
-            <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-7">
+            <div className="bg-white rounded-2xl border border-amber-50 shadow-sm p-4 sm:p-7">
               {/* ==================================================== */}
               {/* Passo 0: Aluno (Primeiro conforme solicitado)       */}
               {/* ==================================================== */}
@@ -784,9 +784,9 @@ export default function EnrollmentScreen() {
                     Preencha os dados de quem vai frequentar as aulas de desenho.
                   </p>
 
-                  <div className="grid grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     {/* Nome do aluno */}
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                         Nome completo do aluno <span className="text-red-500">*</span>
                       </label>
@@ -900,7 +900,7 @@ export default function EnrollmentScreen() {
                     </div>
 
                     {/* Experiência Prévia */}
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                         Possui experiência prévia em desenho? <span className="text-red-500">*</span>
                       </label>
@@ -931,7 +931,7 @@ export default function EnrollmentScreen() {
                     </div>
 
                     {/* Observações / Necessidades */}
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                         Necessidades especiais ou observações <span className="text-gray-400 font-normal">(opcional)</span>
                       </label>
@@ -964,10 +964,10 @@ export default function EnrollmentScreen() {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     {/* Para adulto: toggle para acionar responsável opcional */}
                     {isAdult && (
-                      <div className="col-span-2">
+                      <div className="col-span-1 sm:col-span-2">
                         <button
                           type="button"
                           onClick={() => {
@@ -998,7 +998,7 @@ export default function EnrollmentScreen() {
                     {/* Campos do responsável: exibidos para menores OU adultos com toggle ativo */}
                     {(isMinor || adultoTemResponsavel) && (
                       <>
-                        <div className="col-span-2">
+                        <div className="col-span-1 sm:col-span-2">
                           <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                             Nome completo do responsável <span className="text-red-500">*</span>
                           </label>
@@ -1167,7 +1167,7 @@ export default function EnrollmentScreen() {
                     </div>
 
                     {/* Endereço */}
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                         Endereço completo (Rua, número, complemento) <span className="text-red-500">*</span>
                       </label>
@@ -1239,7 +1239,7 @@ export default function EnrollmentScreen() {
                               return next;
                             });
                           }}
-                          className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4 ${
+                          className={`w-full p-3.5 sm:p-4 rounded-xl border-2 text-left transition-all flex flex-col sm:flex-row sm:items-center items-start gap-3 sm:gap-4 ${
                             !isAgeCompatible
                               ? "opacity-50 border-gray-200 bg-gray-100/60 cursor-not-allowed"
                               : isSelected
