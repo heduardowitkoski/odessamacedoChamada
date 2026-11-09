@@ -895,10 +895,90 @@ export class DatabaseService implements OnModuleInit {
   async getAlunoHistorico(alunoId: string) {
     this.syncWithSupabaseInBackground();
 
-    const aluno = this.memoryDb.alunos.find((a) => a.id === alunoId);
+    let aluno: any = this.memoryDb.alunos.find((a) => a.id === alunoId);
+    if (!aluno) {
+      const le = this.memoryDb.lista_espera.find((l) => l.id === alunoId);
+      if (le) {
+        aluno = {
+          id: le.id,
+          turma_id: le.turma_id || '',
+          resp_nome: le.resp_nome || le.nome_responsavel || 'Responsável',
+          resp_cpf: le.resp_cpf || '',
+          resp_rg: le.resp_rg || '',
+          resp_parentesco: le.resp_parentesco || '',
+          resp_email: le.resp_email || le.email_responsavel || '',
+          resp_telefone: le.resp_telefone || le.telefone_responsavel || '',
+          resp_endereco: le.resp_endereco || '',
+          resp_cep: le.resp_cep || '',
+          resp_bairro: le.resp_bairro || '',
+          aluno_nome: le.aluno_nome || le.nome_aluno || 'Aluno',
+          aluno_nascimento: le.aluno_nascimento || le.data_nascimento || '',
+          aluno_sexo: le.aluno_sexo || '',
+          aluno_cpf: le.aluno_cpf || '',
+          aluno_escola: le.aluno_escola || '',
+          aluno_experiencia: le.aluno_experiencia || '',
+          aluno_necessidades: le.aluno_necessidades || '',
+          status: 'Fila',
+          created_at: le.created_at || new Date().toISOString(),
+        };
+      }
+    }
+
+    if (!aluno) {
+      try {
+        const client = this.supabaseService.getClient();
+        const { data: supaAluno } = await client
+          .from('alunos')
+          .select('*, turmas(*)')
+          .eq('id', alunoId)
+          .maybeSingle();
+
+        if (supaAluno) {
+          aluno = supaAluno;
+          if (!this.memoryDb.alunos.some((a) => a.id === aluno.id)) {
+            this.memoryDb.alunos.push(aluno);
+          }
+        } else {
+          const { data: supaFila } = await client
+            .from('lista_espera')
+            .select('*, turmas(*)')
+            .eq('id', alunoId)
+            .maybeSingle();
+
+          if (supaFila) {
+            aluno = {
+              id: supaFila.id,
+              turma_id: supaFila.turma_id || '',
+              resp_nome: supaFila.resp_nome || supaFila.nome_responsavel || 'Responsável',
+              resp_cpf: supaFila.resp_cpf || '',
+              resp_rg: supaFila.resp_rg || '',
+              resp_parentesco: supaFila.resp_parentesco || '',
+              resp_email: supaFila.resp_email || supaFila.email_responsavel || '',
+              resp_telefone: supaFila.resp_telefone || supaFila.telefone_responsavel || '',
+              resp_endereco: supaFila.resp_endereco || '',
+              resp_cep: supaFila.resp_cep || '',
+              resp_bairro: supaFila.resp_bairro || '',
+              aluno_nome: supaFila.aluno_nome || supaFila.nome_aluno || 'Aluno',
+              aluno_nascimento: supaFila.aluno_nascimento || supaFila.data_nascimento || '',
+              aluno_sexo: supaFila.aluno_sexo || '',
+              aluno_cpf: supaFila.aluno_cpf || '',
+              aluno_escola: supaFila.aluno_escola || '',
+              aluno_experiencia: supaFila.aluno_experiencia || '',
+              aluno_necessidades: supaFila.aluno_necessidades || '',
+              status: 'Fila',
+              created_at: supaFila.created_at || new Date().toISOString(),
+              turmas: supaFila.turmas,
+            };
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Aviso ao buscar aluno por ID no Supabase: ${err?.message}`);
+      }
+    }
+
     if (!aluno) return null;
 
-    const turma = this.memoryDb.turmas.find((t) => t.id === aluno.turma_id);
+    const turma = aluno.turmas || this.memoryDb.turmas.find((t) => t.id === aluno.turma_id);
 
     const freqs = this.memoryDb.frequencias
       .filter((f) => f.aluno_id === alunoId)

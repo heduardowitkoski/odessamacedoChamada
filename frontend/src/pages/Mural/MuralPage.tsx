@@ -42,9 +42,6 @@ export default function MuralPage() {
 
           <nav className="hidden md:flex items-center gap-7">
             <Link to="/" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-              Início
-            </Link>
-            <Link to="/" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
               Turmas
             </Link>
             <span className="text-sm font-bold text-amber-600 border-b-2 border-amber-500 pb-0.5">

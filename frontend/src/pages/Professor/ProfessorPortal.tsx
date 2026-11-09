@@ -18,7 +18,8 @@ import {
   Copy,
   Menu,
   X,
-  Settings
+  Settings,
+  HelpCircle
 } from 'lucide-react';
 import MuralBoard from '../../components/mural/MuralBoard';
 import { getCurrentUser, saveUserSession, clearUserSession, type UserProfile } from '../../lib/auth';
@@ -49,6 +50,7 @@ export default function ProfessorPortal() {
   const [savingFreq, setSavingFreq] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [editandoChamada, setEditandoChamada] = useState(false);
 
   // Estados para chamada de aluno da fila de espera pelo professor
   const [alunoParaChamar, setAlunoParaChamar] = useState<any | null>(null);
@@ -289,6 +291,7 @@ export default function ProfessorPortal() {
 
       if (res.ok) {
         setSaveSuccess(true);
+        setEditandoChamada(false);
         setTimeout(() => setSaveSuccess(false), 4000);
         carregarChamada(selectedTurmaId, selectedData);
       } else {
@@ -643,14 +646,16 @@ export default function ProfessorPortal() {
                     />
                   </div>
 
-                  <div className="self-end">
-                    <button
-                      onClick={handleMarcarTodosPresentes}
-                      className="px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Check size={14} /> Todos Presentes
-                    </button>
-                  </div>
+                    {editandoChamada && (
+                      <div className="self-end">
+                        <button
+                          onClick={handleMarcarTodosPresentes}
+                          className="px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Check size={14} /> Todos Presentes
+                        </button>
+                      </div>
+                    )}
                 </div>
               </div>
 
@@ -672,22 +677,44 @@ export default function ProfessorPortal() {
                   <span className="text-xs text-gray-400">({alunosLista.length} alunos)</span>
                 </div>
 
-                <button
-                  onClick={handleSalvarChamada}
-                  disabled={savingFreq}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  {savingFreq ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" /> Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Save size={14} /> Salvar Diário de Chamada
-                    </>
-                  )}
-                </button>
-              </div>
+                  <div className="flex items-center gap-2">
+                    {!editandoChamada ? (
+                      <button
+                        onClick={() => setEditandoChamada(true)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Pencil size={14} /> Editar Chamada
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditandoChamada(false);
+                            carregarChamada(selectedTurmaId, selectedData);
+                          }}
+                          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={handleSalvarChamada}
+                          disabled={savingFreq}
+                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                        >
+                          {savingFreq ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" /> Salvando...
+                            </>
+                          ) : (
+                            <>
+                              <Save size={14} /> Salvar Chamada
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
 
               {loading ? (
                 <div className="p-8 text-center text-xs text-gray-400">Carregando chamada...</div>
@@ -714,53 +741,83 @@ export default function ProfessorPortal() {
                       </div>
 
                       <div className="flex items-center gap-3 flex-wrap">
-                        {/* Status Buttons */}
-                        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(aluno.aluno_id, 'PRESENTE')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              aluno.status === 'PRESENTE'
-                                ? 'bg-emerald-500 text-white shadow-xs'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                          >
-                            Presente
-                          </button>
+                        {editandoChamada ? (
+                          <>
+                            {/* Status Buttons */}
+                            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(aluno.aluno_id, 'PRESENTE')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                  aluno.status === 'PRESENTE'
+                                    ? 'bg-emerald-500 text-white shadow-xs'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                              >
+                                Presente
+                              </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(aluno.aluno_id, 'FALTA')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              aluno.status === 'FALTA'
-                                ? 'bg-red-500 text-white shadow-xs'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                          >
-                            Falta
-                          </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(aluno.aluno_id, 'FALTA')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                  aluno.status === 'FALTA'
+                                    ? 'bg-red-500 text-white shadow-xs'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                              >
+                                Falta
+                              </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(aluno.aluno_id, 'JUSTIFICADA')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              aluno.status === 'JUSTIFICADA'
-                                ? 'bg-amber-500 text-white shadow-xs'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                          >
-                            Justificada
-                          </button>
-                        </div>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(aluno.aluno_id, 'JUSTIFICADA')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                  aluno.status === 'JUSTIFICADA'
+                                    ? 'bg-amber-500 text-white shadow-xs'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                              >
+                                Justificada
+                              </button>
+                            </div>
 
-                        {/* Campo de Observação */}
-                        <input
-                          type="text"
-                          placeholder="Observação da aula..."
-                          value={aluno.observacao}
-                          onChange={(e) => handleObsChange(aluno.aluno_id, e.target.value)}
-                          className="h-9 px-3 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-300 w-full sm:w-56"
-                        />
+                            {/* Campo de Observação */}
+                            <input
+                              type="text"
+                              placeholder="Observação da aula..."
+                              value={aluno.observacao}
+                              onChange={(e) => handleObsChange(aluno.aluno_id, e.target.value)}
+                              className="h-9 px-3 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-300 w-full sm:w-56"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            {/* Status Visual (Modo Leitura) */}
+                            <div className="flex items-center">
+                              {aluno.status === 'PRESENTE' && (
+                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                  <Check size={12} /> Presente
+                                </span>
+                              )}
+                              {aluno.status === 'FALTA' && (
+                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                                  <X size={12} /> Falta
+                                </span>
+                              )}
+                              {aluno.status === 'JUSTIFICADA' && (
+                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                  <HelpCircle size={12} /> Justificada
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Observação (Modo Leitura) */}
+                            <span className="text-xs text-gray-500 italic max-w-xs truncate">
+                              {aluno.observacao || 'Sem observações'}
+                            </span>
+                          </>
+                        )}
 
                         {/* Botão para abrir histórico de faltas */}
                         <button
@@ -882,7 +939,11 @@ export default function ProfessorPortal() {
                             {item.aluno_nome || item.nome_aluno || 'Aluno'}
                           </td>
                           <td className="px-4 py-3">
-                            {item.aluno_nascimento || item.data_nascimento || '—'}
+                            {(() => {
+                              const val = item.aluno_nascimento || item.data_nascimento;
+                              if (!val) return '—';
+                              return val.includes('-') ? val.split('T')[0].split('-').reverse().join('/') : val;
+                            })()}
                           </td>
                           <td className="px-4 py-3">
                             <span className="font-semibold text-gray-800">

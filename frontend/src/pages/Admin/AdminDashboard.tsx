@@ -53,6 +53,7 @@ export default function AdminDashboard() {
   const [listaFrequencia, setListaFrequencia] = useState<any[]>([]);
   const [alertasFaltas, setAlertasFaltas] = useState<any[]>([]);
   const [savingFreq, setSavingFreq] = useState<boolean>(false);
+  const [editandoChamada, setEditandoChamada] = useState<boolean>(false);
 
   // Estados para Detalhes da Turma e Alunos
   const [selectedTurmaView, setSelectedTurmaView] = useState<any>(null);
@@ -760,6 +761,7 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         alert("Chamada salva com sucesso!");
+        setEditandoChamada(false);
         fetchAlertasFaltas();
         refreshTurmaAlunos();
         fetchFrequencia(selectedTurmaFreq, selectedDataFreq);
@@ -1440,7 +1442,7 @@ export default function AdminDashboard() {
                                         {aluno.aluno_nome}
                                       </p>
                                       <span className="text-[11px] text-gray-400 font-mono">
-                                        Nasc: {aluno.aluno_nascimento ? new Date(aluno.aluno_nascimento).toLocaleDateString() : '—'}
+                                        Nasc: {aluno.aluno_nascimento ? aluno.aluno_nascimento.split('T')[0].split('-').reverse().join('/') : '—'}
                                       </span>
                                     </div>
                                   </div>
@@ -1742,20 +1744,40 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleMarcarTodosPresentes}
-                      className="text-xs text-amber-700 bg-amber-50 border border-amber-200 font-semibold px-3 py-2 rounded-xl hover:bg-amber-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Check size={14} /> Marcar Todos Presentes
-                    </button>
-                    <button
-                      onClick={handleSalvarFrequencia}
-                      disabled={savingFreq}
-                      className="text-xs text-white bg-emerald-600 font-bold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      <Save size={14} /> {savingFreq ? "Salvando..." : "Salvar Chamada"}
-                    </button>
+                  <div className="flex items-center gap-2">
+                    {!editandoChamada ? (
+                      <button
+                        onClick={() => setEditandoChamada(true)}
+                        className="text-xs text-white bg-amber-600 hover:bg-amber-700 font-bold px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <Pencil size={14} /> Editar Chamada
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditandoChamada(false);
+                            fetchFrequencia(selectedTurmaFreq, selectedDataFreq);
+                          }}
+                          className="text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 font-semibold px-3 py-2 rounded-xl transition-colors cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={handleMarcarTodosPresentes}
+                          className="text-xs text-amber-700 bg-amber-50 border border-amber-200 font-semibold px-3 py-2 rounded-xl hover:bg-amber-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Check size={14} /> Marcar Todos Presentes
+                        </button>
+                        <button
+                          onClick={handleSalvarFrequencia}
+                          disabled={savingFreq}
+                          className="text-xs text-white bg-emerald-600 font-bold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+                        >
+                          <Save size={14} /> {savingFreq ? "Salvando..." : "Salvar Chamada"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1790,49 +1812,75 @@ export default function AdminDashboard() {
                             <p className="text-gray-400">{item.resp_telefone}</p>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex justify-center items-center gap-1.5">
-                              <button
-                                onClick={() => handleStatusChange(item.aluno_id, "PRESENTE")}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                                  item.status === "PRESENTE"
-                                    ? "bg-emerald-600 text-white shadow-xs"
-                                    : "bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
-                                }`}
-                              >
-                                <Check size={12} /> Presente
-                              </button>
+                            {editandoChamada ? (
+                              <div className="flex justify-center items-center gap-1.5">
+                                <button
+                                  onClick={() => handleStatusChange(item.aluno_id, "PRESENTE")}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                                    item.status === "PRESENTE"
+                                      ? "bg-emerald-600 text-white shadow-xs"
+                                      : "bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                  }`}
+                                >
+                                  <Check size={12} /> Presente
+                                </button>
 
-                              <button
-                                onClick={() => handleStatusChange(item.aluno_id, "FALTA")}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                                  item.status === "FALTA"
-                                    ? "bg-red-600 text-white shadow-xs"
-                                    : "bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-700"
-                                }`}
-                              >
-                                <X size={12} /> Falta
-                              </button>
+                                <button
+                                  onClick={() => handleStatusChange(item.aluno_id, "FALTA")}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                                    item.status === "FALTA"
+                                      ? "bg-red-600 text-white shadow-xs"
+                                      : "bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-700"
+                                  }`}
+                                >
+                                  <X size={12} /> Falta
+                                </button>
 
-                              <button
-                                onClick={() => handleStatusChange(item.aluno_id, "JUSTIFICADA")}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                                  item.status === "JUSTIFICADA"
-                                    ? "bg-amber-500 text-white shadow-xs"
-                                    : "bg-gray-100 text-gray-600 hover:bg-amber-50 hover:text-amber-700"
-                                }`}
-                              >
-                                <HelpCircle size={12} /> Justificada
-                              </button>
-                            </div>
+                                <button
+                                  onClick={() => handleStatusChange(item.aluno_id, "JUSTIFICADA")}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                                    item.status === "JUSTIFICADA"
+                                      ? "bg-amber-500 text-white shadow-xs"
+                                      : "bg-gray-100 text-gray-600 hover:bg-amber-50 hover:text-amber-700"
+                                  }`}
+                                >
+                                  <HelpCircle size={12} /> Justificada
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex justify-center items-center">
+                                {item.status === "PRESENTE" && (
+                                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                    <Check size={12} /> Presente
+                                  </span>
+                                )}
+                                {item.status === "FALTA" && (
+                                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                                    <X size={12} /> Falta
+                                  </span>
+                                )}
+                                {item.status === "JUSTIFICADA" && (
+                                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                    <HelpCircle size={12} /> Falta Justificada
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3">
-                            <input
-                              type="text"
-                              placeholder="Ex: Atestado, viagem, motivo..."
-                              value={item.observacao}
-                              onChange={(e) => handleObservacaoChange(item.aluno_id, e.target.value)}
-                              className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500 text-gray-700"
-                            />
+                            {editandoChamada ? (
+                              <input
+                                type="text"
+                                placeholder="Ex: Atestado, viagem, motivo..."
+                                value={item.observacao}
+                                onChange={(e) => handleObservacaoChange(item.aluno_id, e.target.value)}
+                                className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500 text-gray-700"
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-500 italic">
+                                {item.observacao || "Sem observações"}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <button
@@ -2064,7 +2112,7 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-xs text-gray-500">
-                            {adm.created_at ? new Date(adm.created_at).toLocaleDateString() : "—"}
+                            {adm.created_at ? new Date(adm.created_at).toLocaleDateString('pt-BR') : "—"}
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -2453,7 +2501,7 @@ export default function AdminDashboard() {
                             <td className="px-6 py-3">
                               <Badge variant="amber">{a.turmas?.nome || "Sem Turma"}</Badge>
                             </td>
-                            <td className="px-6 py-3 text-xs text-gray-500">{new Date(a.created_at).toLocaleDateString()}</td>
+                            <td className="px-6 py-3 text-xs text-gray-500">{a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '—'}</td>
                             <td className="px-6 py-3">
                               <Badge variant={a.status === "Ativo" ? "green" : "gray"}>{a.status}</Badge>
                             </td>
@@ -2524,7 +2572,7 @@ export default function AdminDashboard() {
                                   </div>
                                 </td>
                                 <td className="px-6 py-3.5 text-xs text-gray-600">
-                                  {f.aluno_nascimento || '—'}
+                                  {f.aluno_nascimento ? (f.aluno_nascimento.includes('-') ? f.aluno_nascimento.split('T')[0].split('-').reverse().join('/') : f.aluno_nascimento) : '—'}
                                 </td>
                                 <td className="px-6 py-3.5">
                                   <p className="text-xs font-semibold text-gray-800">{f.resp_nome}</p>
@@ -2550,7 +2598,7 @@ export default function AdminDashboard() {
                                   <Badge variant="amber">{turmaPretendida?.nome || 'Turma Geral'}</Badge>
                                 </td>
                                 <td className="px-6 py-3.5 text-xs text-gray-400">
-                                  {new Date(f.created_at).toLocaleDateString()}
+                                  {f.created_at ? new Date(f.created_at).toLocaleDateString('pt-BR') : '—'}
                                 </td>
                                 <td className="px-6 py-3.5 text-right">
                                   <div className="flex items-center justify-end gap-2">
@@ -2652,7 +2700,7 @@ export default function AdminDashboard() {
                       <p className="text-xs font-semibold text-gray-400 mb-2">Dados da matrícula</p>
                       {[
                         { label: "Turma", value: selectedAluno.turmas?.nome || "---" },
-                        { label: "Matriculado em", value: new Date(selectedAluno.created_at).toLocaleDateString() },
+                        { label: "Matriculado em", value: selectedAluno.created_at ? new Date(selectedAluno.created_at).toLocaleDateString('pt-BR') : '—' },
                       ].map(({ label, value }) => (
                         <div key={label} className="flex justify-between py-1.5 border-b border-gray-50">
                           <span className="text-xs text-gray-500">{label}</span>

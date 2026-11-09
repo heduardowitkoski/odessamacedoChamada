@@ -107,7 +107,7 @@ export interface AuditLog {
 
 export async function fetchAlunosPorTurmaComStats(turmaId: string): Promise<TurmaAlunosResumo> {
   const base = getApiBase();
-  const res = await fetch(`${base}/turmas/${turmaId}/alunos-resumo`);
+  const res = await fetch(`${base}/frequencias/turma/${turmaId}/alunos-resumo`);
   if (!res.ok) {
     throw new Error('Falha ao carregar alunos e estatísticas da turma');
   }
@@ -116,7 +116,7 @@ export async function fetchAlunosPorTurmaComStats(turmaId: string): Promise<Turm
 
 export async function fetchHistoricoAluno(alunoId: string): Promise<AlunoHistoricoResponse> {
   const base = getApiBase();
-  const res = await fetch(`${base}/alunos/${alunoId}/historico`);
+  const res = await fetch(`${base}/frequencias/aluno/${alunoId}`);
   if (!res.ok) {
     throw new Error('Falha ao carregar histórico do aluno');
   }
@@ -139,7 +139,7 @@ export async function justificarFalta(alunoId: string, data: string, justificati
 
 export async function fetchLogs(): Promise<AuditLog[]> {
   const base = getApiBase();
-  const res = await fetch(`${base}/logs`);
+  const res = await fetch(`${base}/admin/logs`);
   if (!res.ok) {
     throw new Error('Falha ao buscar logs de auditoria');
   }
@@ -148,9 +148,10 @@ export async function fetchLogs(): Promise<AuditLog[]> {
 
 export async function exportarLogsCSV(): Promise<string> {
   const base = getApiBase();
-  const res = await fetch(`${base}/logs/exportar-csv`);
+  const res = await fetch(`${base}/admin/logs/exportar`);
   if (!res.ok) {
     throw new Error('Falha ao exportar logs em CSV');
   }
-  return res.text();
+  const data = await res.json();
+  return data.csv;
 }
