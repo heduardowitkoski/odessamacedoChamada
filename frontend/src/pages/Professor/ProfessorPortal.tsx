@@ -19,13 +19,17 @@ import {
   Menu,
   X,
   Settings,
-  HelpCircle
+  HelpCircle,
+  Bell,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 import MuralBoard from '../../components/mural/MuralBoard';
 import { getCurrentUser, saveUserSession, clearUserSession, type UserProfile } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { getApiBase } from '../../lib/api';
 import StudentHistoryModal from '../../components/ui/StudentHistoryModal';
+import { fetchMural, type MuralItem } from '../../lib/muralService';
 
 const API_BASE = getApiBase();
 
@@ -58,6 +62,11 @@ export default function ProfessorPortal() {
   const [chamandoAluno, setChamandoAluno] = useState(false);
   const [resultadoChamada, setResultadoChamada] = useState<{ aluno: any; action_link: string | null; email_enviado: boolean } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Estados para Sino de Notificações
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [alertasFaltas, setAlertasFaltas] = useState<any[]>([]);
+  const [muralItemsNotif, setMuralItemsNotif] = useState<MuralItem[]>([]);
 
   // Estados para Meus Dados / Configurações do Professor
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getCurrentUser());
@@ -99,7 +108,27 @@ export default function ProfessorPortal() {
   useEffect(() => {
     carregarTurmas();
     carregarFilaEspera();
+    carregarNotificacoes();
   }, []);
+
+  const carregarNotificacoes = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/frequencias/alertas`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setAlertasFaltas(data);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar alertas de falta:', e);
+    }
+
+    try {
+      const mural = await fetchMural();
+      if (Array.isArray(mural)) setMuralItemsNotif(mural);
+    } catch (e) {
+      console.warn('Erro ao carregar mural para notificações:', e);
+    }
+  };
 
   const carregarFilaEspera = async () => {
     let fila: any[] = [];
@@ -347,6 +376,120 @@ export default function ProfessorPortal() {
               <Sparkles size={14} className="text-amber-500" />
               Ver Mural Geral
             </Link>
+
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowNotifications(prev => !prev);
+                  carregarNotificacoes();
+                }}
+                className={`relative p-2 rounded-xl transition-colors cursor-pointer ${
+                  showNotifications ? 'bg-blue-100 text-blue-800' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Notificações e Alertas"
+              >
+                <Bell size={18} />
+                {(alertasFaltas.length > 0 || muralItemsNotif.length > 0) && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowNotifications(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-blue-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bell size={16} className="text-blue-600" />
+                        <h4 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm text-[#1C1300]">
+                          Notificações do Professor
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-bold bg-blue-200/80 text-blue-900 px-2 py-0.5 rounded-full">
+                        {alertasFaltas.length + Math.min(muralItemsNotif.length, 3)} novos
+                      </span>
+                    </div>
+
+                    <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                      {alertasFaltas.length > 0 && (
+                        <div className="p-3 bg-red-50/50">
+                          <p className="text-[11px] font-bold text-red-700 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <AlertTriangle size={13} className="text-red-500" /> Alunos com Faltas Excessivas
+                          </p>
+                          <div className="space-y-2">
+                            {alertasFaltas.slice(0, 5).map(({ aluno, faltasConsecutivas, ultimaFalta }) => (
+                              <div
+                                key={aluno.id}
+                                onClick={() => {
+                                  setActiveTab('frequencia');
+                                  setShowNotifications(false);
+                                }}
+                                className="p-2.5 bg-white rounded-xl border border-red-100 shadow-2xs hover:bg-red-50/80 transition-colors cursor-pointer"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <p className="text-xs font-bold text-gray-900">{aluno.aluno_nome}</p>
+                                  <span className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded-md">
+                                    {faltasConsecutivas} faltas seguidas
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-gray-500 mt-0.5">{aluno.turmas?.nome || 'Turma'}</p>
+                                {ultimaFalta && (
+                                  <p className="text-[10px] text-gray-400 mt-1">Última falta: {ultimaFalta}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {muralItemsNotif.length > 0 && (
+                        <div className="p-3">
+                          <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <Sparkles size={13} className="text-blue-500" /> Obras no Mural
+                          </p>
+                          <div className="space-y-2">
+                            {muralItemsNotif.slice(0, 3).map((item) => (
+                              <div
+                                key={item.id}
+                                onClick={() => {
+                                  setActiveTab('mural');
+                                  setShowNotifications(false);
+                                }}
+                                className="p-2.5 bg-gray-50 hover:bg-blue-50/70 rounded-xl border border-gray-100 transition-colors cursor-pointer flex gap-2.5 items-start"
+                              >
+                                {item.imagens && item.imagens.length > 0 && (
+                                  <img
+                                    src={item.imagens[0]}
+                                    alt=""
+                                    className="w-10 h-10 rounded-lg object-cover border border-blue-200 shrink-0"
+                                  />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold text-gray-900 truncate">{item.titulo}</p>
+                                  <p className="text-[10px] text-blue-700 font-medium">{item.turma_nome || 'Turma Geral'}</p>
+                                  <p className="text-[10px] text-gray-400">Por {item.autor_nome}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {alertasFaltas.length === 0 && muralItemsNotif.length === 0 && (
+                        <div className="p-6 text-center text-gray-400">
+                          <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-2" />
+                          <p className="text-xs font-semibold text-gray-700">Nenhuma pendência!</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">Chamadas e alunos em dia.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             <Link
               to="/"

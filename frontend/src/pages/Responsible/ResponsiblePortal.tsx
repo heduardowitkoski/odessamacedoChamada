@@ -23,8 +23,10 @@ import {
   Menu,
   X,
   Settings,
-  Save
+  Save,
+  Bell
 } from 'lucide-react';
+import { fetchMural, type MuralItem } from '../../lib/muralService';
 
 const API_BASE = getApiBase();
 
@@ -74,11 +76,26 @@ export default function ResponsiblePortal() {
     endereco: '',
     bairro: '',
   });
+
+  // Notificações para o Aluno / Responsável
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [muralItemsNotif, setMuralItemsNotif] = useState<MuralItem[]>([]);
+
   const navigate = useNavigate();
 
   useEffect(() => {
     carregarDados();
+    carregarMuralNotif();
   }, []);
+
+  const carregarMuralNotif = async () => {
+    try {
+      const items = await fetchMural();
+      setMuralItemsNotif(Array.isArray(items) ? items : []);
+    } catch (e) {
+      console.warn('Erro ao carregar itens do mural para notificações:', e);
+    }
+  };
 
   const carregarDados = async () => {
     setLoading(true);
@@ -277,6 +294,140 @@ export default function ResponsiblePortal() {
               <Sparkles size={14} className="text-amber-500" />
               Mural Geral
             </Link>
+
+            {/* Sino de Notificações do Responsável / Aluno */}
+            <div className="relative">
+              {(() => {
+                const totalFaltas = alunoSelecionado?.stats?.faltas || 0;
+                const temAlertaFaltas = totalFaltas >= 3;
+                const muralDaTurma = muralItemsNotif.filter(
+                  (m) => !m.turma_id || m.turma_id === alunoSelecionado?.turma?.id
+                );
+                const countNotifs = (temAlertaFaltas ? 1 : 0) + Math.min(muralDaTurma.length, 3);
+
+                return (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowNotifications((prev) => !prev);
+                        carregarMuralNotif();
+                      }}
+                      className={`relative p-2 rounded-xl transition-colors cursor-pointer ${
+                        showNotifications
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title="Notificações e Avisos do Aluno"
+                    >
+                      <Bell size={18} />
+                      {countNotifs > 0 && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                      )}
+                    </button>
+
+                    {showNotifications && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setShowNotifications(false)}
+                        />
+                        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-amber-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                          <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Bell size={16} className="text-amber-600" />
+                              <h4 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm text-[#1C1300]">
+                                Meus Alertas & Notificações
+                              </h4>
+                            </div>
+                            <span className="text-[11px] font-bold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full">
+                              {countNotifs} novos
+                            </span>
+                          </div>
+
+                          <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                            {/* Alerta de Faltas do Aluno */}
+                            {temAlertaFaltas && (
+                              <div className="p-3.5 bg-red-50/60">
+                                <div className="flex items-start gap-2.5">
+                                  <div className="p-1.5 rounded-lg bg-red-100 text-red-600 shrink-0 mt-0.5">
+                                    <AlertCircle size={16} />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-bold text-red-900">
+                                      Atenção às Faltas ({totalFaltas} ausências)
+                                    </p>
+                                    <p className="text-[11px] text-red-700 mt-0.5 leading-relaxed">
+                                      O aluno atingiu 3 ou mais faltas. Lembre-se que a presença mínima exigida pelo centro é de 75% para manter a vaga ativa.
+                                    </p>
+                                    <button
+                                      onClick={() => {
+                                        setActiveTab('frequencia');
+                                        setShowNotifications(false);
+                                      }}
+                                      className="mt-2 text-[11px] font-bold text-red-700 hover:underline inline-block cursor-pointer"
+                                    >
+                                      Consultar histórico de faltas →
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Postagens no Mural que dizem respeito à turma do aluno */}
+                            {muralDaTurma.length > 0 && (
+                              <div className="p-3">
+                                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+                                  <Sparkles size={13} className="text-amber-500" /> Postado no Mural da Turma
+                                </p>
+                                <div className="space-y-2">
+                                  {muralDaTurma.slice(0, 3).map((item) => (
+                                    <div
+                                      key={item.id}
+                                      onClick={() => {
+                                        setActiveTab('mural');
+                                        setShowNotifications(false);
+                                      }}
+                                      className="p-2.5 bg-gray-50 hover:bg-amber-50/70 rounded-xl border border-gray-100 transition-colors cursor-pointer flex gap-2.5 items-start"
+                                    >
+                                      {item.imagens && item.imagens.length > 0 && (
+                                        <img
+                                          src={item.imagens[0]}
+                                          alt=""
+                                          className="w-10 h-10 rounded-lg object-cover border border-amber-200 shrink-0"
+                                        />
+                                      )}
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-semibold text-gray-900 truncate">
+                                          {item.titulo}
+                                        </p>
+                                        <p className="text-[10px] text-amber-700 font-medium">
+                                          {item.turma_nome || 'Turma Geral'}
+                                        </p>
+                                        <p className="text-[10px] text-gray-400">Por {item.autor_nome}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {!temAlertaFaltas && muralDaTurma.length === 0 && (
+                              <div className="p-6 text-center text-gray-400">
+                                <CheckCircle size={24} className="mx-auto text-emerald-500 mb-2" />
+                                <p className="text-xs font-semibold text-gray-700">Tudo em ordem!</p>
+                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                  Frequência regular e sem novos comunicados da turma.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
 
             <div className="hidden sm:flex flex-col text-right">
               <span className="text-xs font-semibold text-gray-800">{userEmail}</span>

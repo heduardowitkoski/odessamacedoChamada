@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Search, Filter, Pencil, BookOpen, Plus, ListOrdered, Award, X, Loader2, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Search, Filter, Pencil, BookOpen, Plus, Award, Sparkles } from "lucide-react";
 import { getApiBase } from "../../lib/api";
-import { supabase } from "../../lib/supabase";
 
 // Interface baseada no banco de dados e UI
 interface Turma {
@@ -33,13 +32,6 @@ export default function PortalScreen() {
   const [search, setSearch] = useState("");
   const [turmasDb, setTurmasDb] = useState<Turma[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Modal verificar posição na fila
-  const [showFilaModal, setShowFilaModal] = useState(false);
-  const [filaEmail, setFilaEmail] = useState("");
-  const [filaLoading, setFilaLoading] = useState(false);
-  const [filaErro, setFilaErro] = useState("");
-  const navigate = useNavigate();
 
   const filters = ["Todas", "Com vagas", "Turma cheia"];
 
@@ -84,25 +76,6 @@ export default function PortalScreen() {
     t.turno.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleVerificarFila = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!filaEmail.trim()) return;
-    setFilaLoading(true);
-    setFilaErro("");
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.email?.toLowerCase() === filaEmail.trim().toLowerCase()) {
-        navigate("/responsavel");
-        return;
-      }
-      navigate("/login");
-    } catch {
-      setFilaErro("Ocorreu um erro. Tente novamente.");
-    } finally {
-      setFilaLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-['Inter',sans-serif]">
       {/* Header */}
@@ -134,14 +107,6 @@ export default function PortalScreen() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <button
-              id="btn-verificar-fila"
-              onClick={() => setShowFilaModal(true)}
-              className="px-2.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <span className="hidden sm:inline">Verificar posição na fila</span>
-              <span className="sm:hidden">Ver fila</span>
-            </button>
             <Link to="/login" className="px-3.5 sm:px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors shadow-sm whitespace-nowrap">
               Login
             </Link>
@@ -165,16 +130,8 @@ export default function PortalScreen() {
               <span className="text-amber-300">para todas as idades</span>
             </h1>
             <p className="text-amber-100/80 text-sm sm:text-base max-w-lg mb-6 sm:mb-8 leading-relaxed">
-              Turmas organizadas por faixa etária, do Infantil ao Melhor Idade. Verifique as vagas disponíveis e faça sua inscrição ou entre na fila de espera.
+              Turmas organizadas por faixa etária, do Infantil ao Melhor Idade. Verifique as vagas disponíveis e faça sua inscrição online gratuitamente.
             </p>
-            <div className="flex gap-3 flex-wrap">
-              <button
-                onClick={() => setShowFilaModal(true)}
-                className="w-full sm:w-auto px-6 py-3 bg-white/10 text-white text-sm font-semibold rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <ListOrdered size={16} /> Consultar fila de espera
-              </button>
-            </div>
           </div>
         </div>
       </section>
@@ -286,60 +243,6 @@ export default function PortalScreen() {
           </div>
         </div>
       </main>
-
-      {/* Modal: Verificar posição na fila */}
-      {showFilaModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-amber-100">
-            <div className="flex items-center justify-between mb-4 sm:mb-5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                  <ListOrdered size={16} />
-                </div>
-                <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base text-[#1C1300]">
-                  Verificar posição na fila
-                </h3>
-              </div>
-              <button
-                onClick={() => { setShowFilaModal(false); setFilaErro(""); setFilaEmail(""); }}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-              Informe o e-mail cadastrado na inscrição para acessar o portal do responsável e ver a situação do aluno na fila de espera.
-            </p>
-
-            <form onSubmit={handleVerificarFila} className="space-y-3">
-              <input
-                type="email"
-                required
-                placeholder="seu@email.com"
-                value={filaEmail}
-                onChange={(e) => setFilaEmail(e.target.value)}
-                className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-gray-50 focus:bg-white"
-              />
-              {filaErro && <p className="text-xs text-red-600">{filaErro}</p>}
-              <button
-                type="submit"
-                disabled={filaLoading}
-                className="w-full h-10 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-              >
-                {filaLoading ? <><Loader2 size={14} className="animate-spin" /> Verificando...</> : "Acessar minha conta"}
-              </button>
-            </form>
-
-            <p className="text-center text-xs text-gray-400 mt-3">
-              Ainda não tem conta?{" "}
-              <Link to="/inscrever" className="text-amber-600 font-semibold hover:underline" onClick={() => setShowFilaModal(false)}>
-                Inscreva-se aqui
-              </Link>
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

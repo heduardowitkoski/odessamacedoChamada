@@ -7,10 +7,11 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Avatar } from "../../components/ui/Avatar";
 import { Badge } from "../../components/ui/Badge";
 import { supabase } from "../../lib/supabase";
-import MuralBoard from "../../components/mural/MuralBoard";
 import { clearUserSession, getCurrentUser, saveUserSession, type UserProfile } from "../../lib/auth";
+import MuralBoard from "../../components/mural/MuralBoard";
 import ReportsTab from "./ReportsTab";
 import StudentHistoryModal from "../../components/ui/StudentHistoryModal";
+import { fetchMural, type MuralItem } from "../../lib/muralService";
 import {
   getApiBase,
   fetchAlunosPorTurmaComStats,
@@ -128,7 +129,20 @@ export default function AdminDashboard() {
   const [filtroLogBusca, setFiltroLogBusca] = useState<string>('');
   const [exportandoLogs, setExportandoLogs] = useState(false);
 
+  // Estados para Sino de Notificações
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [muralItemsNotif, setMuralItemsNotif] = useState<MuralItem[]>([]);
+
   const navigate = useNavigate();
+
+  const carregarMuralNotif = async () => {
+    try {
+      const items = await fetchMural();
+      setMuralItemsNotif(Array.isArray(items) ? items : []);
+    } catch (e) {
+      console.warn('Erro ao carregar itens do mural para notificações:', e);
+    }
+  };
 
   const carregarLogs = async () => {
     setLoadingLogs(true);
@@ -301,6 +315,7 @@ export default function AdminDashboard() {
     fetchAdmins();
     fetchProfessores();
     carregarLogs();
+    carregarMuralNotif();
   }, []);
 
   useEffect(() => {
@@ -1184,12 +1199,134 @@ export default function AdminDashboard() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2 text-gray-400 hover:text-gray-700 rounded-xl hover:bg-gray-100">
-              <Bell size={20} />
-              {alertasFaltas.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowNotifications(prev => !prev);
+                  carregarMuralNotif();
+                }}
+                className={`relative p-2 rounded-xl transition-colors cursor-pointer ${
+                  showNotifications ? 'bg-amber-100 text-amber-800' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Central de Notificações e Alertas"
+              >
+                <Bell size={20} />
+                {(alertasFaltas.length > 0 || muralItemsNotif.length > 0) && (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+                )}
+              </button>
+
+              {/* Popover / Aba de Notificações do Sino */}
+              {showNotifications && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowNotifications(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-amber-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                    <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bell size={16} className="text-amber-600" />
+                        <h4 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm text-[#1C1300]">
+                          Notificações do Sistema
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-bold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full">
+                        {alertasFaltas.length + Math.min(muralItemsNotif.length, 3)} novos
+                      </span>
+                    </div>
+
+                    <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                      {/* Seção 1: Alertas de Absenteísmo (Faltas Consecutivas) */}
+                      {alertasFaltas.length > 0 && (
+                        <div className="p-3 bg-red-50/50">
+                          <p className="text-[11px] font-bold text-red-700 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <AlertTriangle size={13} className="text-red-500" /> Alertas de Faltas ({alertasFaltas.length})
+                          </p>
+                          <div className="space-y-2">
+                            {alertasFaltas.slice(0, 5).map(({ aluno, faltasConsecutivas, ultimaFalta }) => (
+                              <div
+                                key={aluno.id}
+                                onClick={() => {
+                                  setActiveMenu("Frequência");
+                                  setShowNotifications(false);
+                                }}
+                                className="p-2.5 bg-white rounded-xl border border-red-100 shadow-2xs hover:bg-red-50/80 transition-colors cursor-pointer"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <p className="text-xs font-bold text-gray-900">{aluno.aluno_nome}</p>
+                                  <span className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded-md">
+                                    {faltasConsecutivas} faltas
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-gray-500 mt-0.5">{aluno.turmas?.nome || "Sem Turma"}</p>
+                                {ultimaFalta && (
+                                  <p className="text-[10px] text-gray-400 mt-1">Última: {ultimaFalta}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Seção 2: Publicações Recentes no Mural */}
+                      {muralItemsNotif.length > 0 && (
+                        <div className="p-3">
+                          <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <Sparkles size={13} className="text-amber-500" /> Novas Obras no Mural
+                          </p>
+                          <div className="space-y-2">
+                            {muralItemsNotif.slice(0, 3).map((item) => (
+                              <div
+                                key={item.id}
+                                onClick={() => {
+                                  setActiveMenu("Mural");
+                                  setShowNotifications(false);
+                                }}
+                                className="p-2.5 bg-gray-50 hover:bg-amber-50/70 rounded-xl border border-gray-100 transition-colors cursor-pointer flex gap-2.5 items-start"
+                              >
+                                {item.imagens && item.imagens.length > 0 && (
+                                  <img
+                                    src={item.imagens[0]}
+                                    alt=""
+                                    className="w-10 h-10 rounded-lg object-cover border border-amber-200 shrink-0"
+                                  />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold text-gray-900 truncate">{item.titulo}</p>
+                                  <p className="text-[10px] text-amber-700 font-medium">{item.turma_nome || "Turma Geral"}</p>
+                                  <p className="text-[10px] text-gray-400">Por {item.autor_nome}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {alertasFaltas.length === 0 && muralItemsNotif.length === 0 && (
+                        <div className="p-6 text-center text-gray-400">
+                          <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-2" />
+                          <p className="text-xs font-semibold text-gray-700">Tudo em dia!</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">Nenhum alerta crítico ou pendência no momento.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-2.5 bg-gray-50 border-t border-gray-100 text-center">
+                      <button
+                        onClick={() => {
+                          setActiveMenu("Frequência");
+                          setShowNotifications(false);
+                        }}
+                        className="text-[11px] font-bold text-amber-700 hover:text-amber-800 hover:underline cursor-pointer"
+                      >
+                        Ver todos os alertas na aba Frequência →
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
-            </button>
+            </div>
             {activeMenu !== "Relatórios" && (
               <button className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600 font-medium border border-gray-200 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 hover:bg-gray-50 cursor-pointer shrink-0" onClick={handleExportCSV} title="Exportar planilha CSV">
                 <Download size={14} /> <span className="hidden sm:inline">Exportar CSV</span>
