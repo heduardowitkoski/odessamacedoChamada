@@ -11,6 +11,14 @@ export interface EmailAlunoChamadoDto {
   action_link: string;
 }
 
+export interface EmailConfirmacaoInscricaoDto {
+  resp_nome: string;
+  resp_email: string;
+  aluno_nome: string;
+  turma_nome: string;
+  turma_turno: string;
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -235,6 +243,95 @@ Aluno: ${dados.aluno_nome} | Faltas consecutivas: ${dados.faltas_consecutivas}`)
       return { success: true, messageId: info.messageId };
     } catch (err: any) {
       this.logger.error(`Erro ao enviar alerta para ${dados.resp_email}: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
+  async enviarEmailConfirmacaoInscricao(dados: EmailConfirmacaoInscricaoDto): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const from =
+      this.configService.get<string>('SMTP_FROM') ||
+      '"CDE Odessa Macedo" <nao-responda@cultura.bage.rs.gov.br>';
+
+    const subject = `Inscrição Recebida! CDE Odessa Macedo - ${dados.aluno_nome}`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #FAFAF7; margin: 0; padding: 24px; color: #1C1300; }
+    .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 18px; border: 1px solid #FDE68A; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .header { background: linear-gradient(135deg, #F59E0B, #EA580C); padding: 32px 24px; text-align: center; color: #ffffff; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.9; }
+    .content { padding: 32px 28px; }
+    .greeting { font-size: 16px; font-weight: bold; margin-bottom: 12px; }
+    .intro { font-size: 14px; line-height: 1.6; color: #4B5563; margin-bottom: 24px; }
+    .turma-box { background-color: #FEF3C7; border: 1px solid #FCD34D; border-radius: 14px; padding: 18px; margin-bottom: 24px; }
+    .turma-title { font-size: 12px; text-transform: uppercase; font-weight: bold; color: #92400E; margin-bottom: 8px; }
+    .turma-detail { font-size: 15px; font-weight: bold; color: #1F2937; margin: 4px 0; }
+    .turma-sub { font-size: 13px; color: #6B7280; margin: 2px 0 0 0; }
+    .info-box { background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 16px; font-size: 13px; color: #166534; line-height: 1.5; margin-bottom: 24px; }
+    .footer { text-align: center; font-size: 11px; color: #9CA3AF; border-top: 1px solid #F3F4F6; padding: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>CDE Odessa Macedo</h1>
+      <p>Centro de Desenvolvimento da Expressão · Secretaria de Cultura de Bagé</p>
+    </div>
+    <div class="content">
+      <div class="greeting">Olá, ${dados.resp_nome}!</div>
+      <p class="intro">
+        A inscrição de <strong>${dados.aluno_nome}</strong> para as aulas gratuitas de desenho e artes visuais foi realizada com sucesso e encontra-se registrada em nosso sistema.
+      </p>
+
+      <div class="turma-box">
+        <div class="turma-title">Turma Solicitada</div>
+        <div class="turma-detail">🎨 ${dados.turma_nome}</div>
+        <div class="turma-sub">⏰ Turno / Horário: <strong>${dados.turma_turno}</strong></div>
+      </div>
+
+      <div class="info-box">
+        <strong>📋 Próximos Passos:</strong><br>
+        O cadastro entrou na fila de classificação da turma. Assim que uma vaga for disponibilizada, você receberá um novo e-mail com a confirmação da matrícula e o link exclusivo para criar sua senha de acompanhamento no portal.
+      </div>
+
+      <p style="font-size: 12px; color: #6B7280; line-height: 1.6;">
+        Todas as atividades e materiais de desenho são 100% gratuitos, disponibilizados pela Prefeitura de Bagé através do CDE Odessa Macedo.
+      </p>
+    </div>
+    <div class="footer">
+      Prefeitura Municipal de Bagé · Secretaria Municipal de Cultura<br>
+      Centro de Desenvolvimento da Expressão Odessa Macedo
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    if (!this.transporter) {
+      this.logger.warn(`[SIMULAÇÃO - CONFIRMAÇÃO DE INSCRIÇÃO]
+Para: ${dados.resp_email}
+Assunto: ${subject}
+Aluno: ${dados.aluno_nome}
+Turma: ${dados.turma_nome} (${dados.turma_turno})`);
+      return { success: true, messageId: 'simulated-inscricao-' + Date.now() };
+    }
+
+    try {
+      const info = await this.transporter.sendMail({
+        from,
+        to: dados.resp_email,
+        subject,
+        html,
+      });
+      this.logger.log(`E-mail de confirmação de inscrição enviado para ${dados.resp_email} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (err: any) {
+      this.logger.error(`Erro ao enviar confirmação de inscrição para ${dados.resp_email}: ${err.message}`, err.stack);
       return { success: false, error: err.message };
     }
   }

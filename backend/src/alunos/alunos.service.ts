@@ -153,7 +153,35 @@ export class AlunosService {
     }
 
     if (createdAluno) {
+      // Dispara envio do e-mail de confirmação de inscrição de forma assíncrona
+      if (normalizedDto.resp_email) {
+        this.emailService
+          .enviarEmailConfirmacaoInscricao({
+            resp_nome: normalizedDto.resp_nome || 'Responsável',
+            resp_email: normalizedDto.resp_email.trim(),
+            aluno_nome: normalizedDto.aluno_nome || 'Aluno',
+            turma_nome: turmaWithAge?.nome || 'Turma Solicitada',
+            turma_turno: turmaWithAge?.turno || 'Turno a definir',
+          })
+          .catch((err) =>
+            this.logger.warn(`Falha ao disparar e-mail de confirmação de inscrição: ${err?.message}`),
+          );
+      }
       return createdAluno;
+    }
+
+    if (normalizedDto.resp_email) {
+      this.emailService
+        .enviarEmailConfirmacaoInscricao({
+          resp_nome: normalizedDto.resp_nome || 'Responsável',
+          resp_email: normalizedDto.resp_email.trim(),
+          aluno_nome: normalizedDto.aluno_nome || 'Aluno',
+          turma_nome: turmaWithAge?.nome || 'Turma Solicitada',
+          turma_turno: turmaWithAge?.turno || 'Turno a definir',
+        })
+        .catch((err) =>
+          this.logger.warn(`Falha ao disparar e-mail de confirmação de inscrição: ${err?.message}`),
+        );
     }
 
     return {
@@ -336,8 +364,14 @@ export class AlunosService {
               },
             });
 
-          if (!linkError) {
-            action_link = linkData?.properties?.action_link || null;
+          if (!linkError && linkData?.properties) {
+            const tokenHash = linkData.properties.hashed_token;
+            if (tokenHash) {
+              // Constrói link direto e infalível para o frontend, evitando qualquer redirecionamento para localhost
+              action_link = `${frontendUrl}/redefinir-senha?token_hash=${tokenHash}&type=recovery&email=${encodeURIComponent(respEmail)}`;
+            } else {
+              action_link = linkData.properties.action_link || null;
+            }
           }
 
           if (action_link) {
