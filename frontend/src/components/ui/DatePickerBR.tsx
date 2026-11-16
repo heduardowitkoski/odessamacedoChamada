@@ -1,5 +1,4 @@
-import React, { useRef } from 'react';
-import { Calendar } from 'lucide-react';
+import React from 'react';
 
 interface DatePickerProps {
   value: string; // formato YYYY-MM-DD
@@ -22,8 +21,6 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
   min,
   max,
 }) => {
-  const hiddenInputRef = useRef<HTMLInputElement | null>(null);
-
   // Formata YYYY-MM-DD para DD/MM/AAAA para exibição
   const formatIsoToBr = (iso: string): string => {
     if (!iso) return '';
@@ -39,71 +36,32 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
 
   const displayValue = formatIsoToBr(value);
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 8);
-
-    // Se completou 8 dígitos (DD/MM/AAAA), propaga no formato ISO YYYY-MM-DD
-    if (raw.length === 8) {
-      const day = raw.slice(0, 2);
-      const month = raw.slice(2, 4);
-      const year = raw.slice(4, 8);
-      onChange(`${year}-${month}-${day}`);
-    } else if (raw.length === 0) {
-      onChange('');
-    }
-  };
-
-  const handleNativeDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value);
-  };
-
-  const openCalendar = () => {
-    const el = hiddenInputRef.current as HTMLInputElement | null;
-    if (!el) return;
-    if ('showPicker' in el) {
-      try {
-        (el as any).showPicker();
-      } catch {
-        (el as HTMLInputElement).focus();
-      }
-    } else {
-      (el as HTMLInputElement).focus();
-    }
-  };
-
   return (
+    /*
+     * Estratégia mobile-first:
+     * O input nativo type="date" fica sobreposto por cima do texto exibido,
+     * completamente transparente (opacity-0), mas com largura/altura reais,
+     * assim qualquer toque na área abre o seletor de data nativo do sistema
+     * tanto no iOS Safari quanto no Android Chrome.
+     */
     <div className={`relative flex items-center ${className}`}>
+      {/* Texto de exibição no formato DD/MM/AAAA */}
+      <span className="pointer-events-none select-none w-full">
+        {displayValue || <span className="text-gray-400">DD/MM/AAAA</span>}
+      </span>
+
+      {/* Input nativo sobreposto — recebe os toques e abre o picker nativo */}
       <input
-        type="text"
+        type="date"
         id={id}
         name={name}
         required={required}
-        placeholder="DD/MM/AAAA"
-        value={displayValue}
-        onChange={handleTextChange}
-        className="w-full bg-transparent focus:outline-none pr-8 cursor-text"
-        maxLength={10}
-      />
-      <button
-        type="button"
-        tabIndex={-1}
-        onClick={openCalendar}
-        className="absolute right-2 p-1 text-gray-400 hover:text-amber-600 focus:outline-none transition-colors cursor-pointer"
-        title="Abrir calendário"
-      >
-        <Calendar size={16} />
-      </button>
-
-      {/* Input nativo oculto para permitir o uso do seletor gráfico de calendário do navegador */}
-      <input
-        ref={hiddenInputRef}
-        type="date"
-        tabIndex={-1}
         min={min}
         max={max}
         value={value || ''}
-        onChange={handleNativeDateChange}
-        className="absolute opacity-0 pointer-events-none w-0 h-0"
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        style={{ WebkitAppearance: 'none' }}
       />
     </div>
   );
