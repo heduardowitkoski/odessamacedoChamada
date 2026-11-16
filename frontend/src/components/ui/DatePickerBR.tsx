@@ -22,7 +22,7 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
   min,
   max,
 }) => {
-  const hiddenInputRef = useRef<HTMLInputElement>(null);
+  const hiddenInputRef = useRef<HTMLInputElement | null>(null);
 
   // Formata YYYY-MM-DD para DD/MM/AAAA para exibição
   const formatIsoToBr = (iso: string): string => {
@@ -41,12 +41,6 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
 
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '').slice(0, 8);
-    let formatted = raw;
-    if (raw.length > 2 && raw.length <= 4) {
-      formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
-    } else if (raw.length > 4) {
-      formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
-    }
 
     // Se completou 8 dígitos (DD/MM/AAAA), propaga no formato ISO YYYY-MM-DD
     if (raw.length === 8) {
@@ -64,16 +58,16 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
   };
 
   const openCalendar = () => {
-    if (hiddenInputRef.current) {
-      if ('showPicker' in hiddenInputRef.current) {
-        try {
-          (hiddenInputRef.current as any).showPicker();
-        } catch {
-          hiddenInputRef.current.focus();
-        }
-      } else {
-        hiddenInputRef.current.focus();
+    const el = hiddenInputRef.current as HTMLInputElement | null;
+    if (!el) return;
+    if ('showPicker' in el) {
+      try {
+        (el as any).showPicker();
+      } catch {
+        (el as HTMLInputElement).focus();
       }
+    } else {
+      (el as HTMLInputElement).focus();
     }
   };
 
@@ -116,4 +110,3 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
 };
 
 export default DatePickerBR;
-
