@@ -1,0 +1,72 @@
+====================================================================
+           COMO FUNCIONA O BACKUP AUTOMÁTICO GRATUITO
+                  CDE ODESSA MACEDO
+====================================================================
+
+1. O QUE ESTÁ SENDO SALVO?
+   Todo o banco de dados do Supabase:
+   - Alunos
+   - Turmas
+   - Frequências (chamadas de aula)
+   - Lista de espera
+   - Logs de auditoria
+
+   (O código do sistema já está seguro no GitHub principal).
+
+--------------------------------------------------------------------
+
+2. COMO ELE FUNCIONA?
+   - Um robô do GitHub Actions roda automaticamente todos os dias
+     à meia-noite (00:00 BRT / 03:00 UTC).
+   - Ele se conecta ao Supabase via API oficial com segurança.
+   - Baixa os dados de cada tabela em formato JSON.
+   - Salva e organiza tudo em pastas por data (ex: backup/2026-11-16/).
+   - Envia os arquivos para o repositório privado "odessa-macedo-backups".
+
+   CUSTO: R$ 0,00 (100% gratuito, usando a cota free do GitHub Actions).
+
+--------------------------------------------------------------------
+
+3. O QUE VOCÊ PRECISA FAZER AGORA (SÓ UMA VEZ):
+
+   PASSO A: Criar o repositório onde os backups serão guardados
+   - Vá no seu GitHub -> "New repository"
+   - Nome: odessa-macedo-backups
+   - Marque: Private (Privado)
+   - Marque: Add a README file
+   - Clique em "Create repository"
+
+   PASSO B: Adicionar os 3 Segredos (Secrets) no repositório principal
+   - Acesse o repositório "odessamacedoChamada" no GitHub.
+   - Vá em: Settings -> Secrets and variables -> Actions -> "New repository secret".
+   - Adicione os 3 segredos abaixo:
+
+     1) Nome: SUPABASE_URL
+        Valor: https://bvrjyzeijxhfnxpmwgib.supabase.co
+
+     2) Nome: SUPABASE_SERVICE_KEY
+        Valor: (sua chave secreta service_role do painel Supabase:
+                Project Settings -> API -> service_role secret)
+
+     3) Nome: BACKUP_REPO_TOKEN
+        Valor: (o seu Personal Access Token do GitHub com permissão
+                "repo" e "workflow")
+
+--------------------------------------------------------------------
+
+4. COMO TESTAR SE ESTÁ FUNCIONANDO:
+   - No GitHub, vá no repositório "odessamacedoChamada".
+   - Clique na aba "Actions".
+   - Clique em "Backup Supabase Diário" no menu à esquerda.
+   - Clique no botão "Run workflow" -> "Run workflow".
+   - Quando ficar verde (✓), abra o repositório "odessa-macedo-backups".
+   - Os arquivos .json do dia já estarão lá salvos!
+
+--------------------------------------------------------------------
+
+5. COMO RESTAURAR SE DER ALGUM PROBLEMA NO FUTURO?
+   - Os arquivos .json guardados no repositório privado contêm a cópia
+     exata de todas as linhas de cada tabela.
+   - Podem ser reinseridos no Supabase via script ou importados
+     diretamente em minutos.
+====================================================================
