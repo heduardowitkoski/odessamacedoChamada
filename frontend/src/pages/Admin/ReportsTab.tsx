@@ -6,6 +6,7 @@ import {
   AlertTriangle, BarChart2, Clock, Download, FileSpreadsheet, FileText, Loader2, RefreshCw, Users,
 } from "lucide-react";
 import { getApiBase } from "../../lib/api";
+import DatePickerBR from "../../components/ui/DatePickerBR";
 
 const API_BASE = getApiBase();
 
@@ -247,21 +248,23 @@ export default function ReportsTab({ turmas, alertasFaltas }: ReportsTabProps) {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Data inicial</label>
-            <input
-              type="date"
-              value={dataInicio}
-              onChange={(e) => setDataInicio(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-            />
+            <div className="border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus-within:ring-2 focus-within:ring-amber-300">
+              <DatePickerBR
+                value={dataInicio}
+                onChange={(val) => setDataInicio(val)}
+                className="w-full text-sm"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Data final</label>
-            <input
-              type="date"
-              value={dataFim}
-              onChange={(e) => setDataFim(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-            />
+            <div className="border border-gray-200 rounded-xl px-3 py-2.5 bg-white focus-within:ring-2 focus-within:ring-amber-300">
+              <DatePickerBR
+                value={dataFim}
+                onChange={(val) => setDataFim(val)}
+                className="w-full text-sm"
+              />
+            </div>
           </div>
         </div>
 

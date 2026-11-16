@@ -30,6 +30,7 @@ import { supabase } from '../../lib/supabase';
 import { getApiBase } from '../../lib/api';
 import StudentHistoryModal from '../../components/ui/StudentHistoryModal';
 import { fetchMural, type MuralItem } from '../../lib/muralService';
+import DatePickerBR from '../../components/ui/DatePickerBR';
 
 const API_BASE = getApiBase();
 
@@ -781,11 +782,10 @@ export default function ProfessorPortal() {
 
                   <div>
                     <label className="block text-[11px] font-bold text-gray-500 mb-1">Data da Aula:</label>
-                    <input
-                      type="date"
+                    <DatePickerBR
                       value={selectedData}
-                      onChange={(e) => setSelectedData(e.target.value)}
-                      className="bg-gray-50 border border-gray-200 text-xs font-semibold rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      onChange={(val) => setSelectedData(val)}
+                      className="bg-gray-50 border border-gray-200 text-xs font-semibold rounded-xl px-3 py-2 text-gray-800 focus-within:ring-2 focus-within:ring-blue-300 w-36"
                     />
                   </div>
 

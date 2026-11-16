@@ -11,6 +11,7 @@ import { clearUserSession, getCurrentUser, saveUserSession, type UserProfile } f
 import MuralBoard from "../../components/mural/MuralBoard";
 import ReportsTab from "./ReportsTab";
 import StudentHistoryModal from "../../components/ui/StudentHistoryModal";
+import DatePickerBR from "../../components/ui/DatePickerBR";
 import { fetchMural, type MuralItem } from "../../lib/muralService";
 import {
   getApiBase,
@@ -1869,13 +1870,11 @@ export default function AdminDashboard() {
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 mb-1">Data da Aula</label>
-                      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-                        <Calendar size={16} className="text-gray-400" />
-                        <input
-                          type="date"
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 w-44">
+                        <DatePickerBR
                           value={selectedDataFreq}
-                          onChange={(e) => setSelectedDataFreq(e.target.value)}
-                          className="bg-transparent text-sm font-semibold text-gray-800 focus:outline-none"
+                          onChange={(val) => setSelectedDataFreq(val)}
+                          className="text-sm font-semibold text-gray-800"
                         />
                       </div>
                     </div>
@@ -3808,12 +3807,13 @@ export default function AdminDashboard() {
 
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Data de Nascimento</label>
-                    <input
-                      type="date"
-                      value={alunoEditForm.aluno_nascimento || ''}
-                      onChange={(e) => setAlunoEditForm({ ...alunoEditForm, aluno_nascimento: e.target.value })}
-                      className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
-                    />
+                    <div className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 focus-within:ring-1 focus-within:ring-amber-500">
+                      <DatePickerBR
+                        value={alunoEditForm.aluno_nascimento || ''}
+                        onChange={(val) => setAlunoEditForm({ ...alunoEditForm, aluno_nascimento: val })}
+                        className="text-xs font-medium text-gray-800"
+                      />
+                    </div>
                   </div>
 
                   <div>

@@ -37,3 +37,4 @@ $$ LANGUAGE plpgsql;
 UPDATE alunos
 SET aluno_nome = formatar_nome_aluno(aluno_nome)
 WHERE aluno_nome IS NOT NULL;
+
