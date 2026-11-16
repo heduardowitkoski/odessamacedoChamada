@@ -1,0 +1,57 @@
+name: Backup Supabase Diário
+
+on:
+  schedule:
+    # Roda diariamente às 03:00 UTC (00:00 no horário de Brasília)
+    - cron: '0 3 * * *'
+  # Permite disparar manualmente pela aba "Actions" no GitHub
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: Realizar Backup do Banco de Dados
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Coletar dados das tabelas do Supabase
+        id: fetch_data
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          echo "DATA_BACKUP=$DATE" >> $GITHUB_ENV
+          mkdir -p backup/$DATE
+
+          # Lista de tabelas críticas para backup
+          TABELAS=("alunos" "turmas" "frequencias" "lista_espera" "logs")
+
+          for TABELA in "${TABELAS[@]}"; do
+            echo "Exportando tabela: $TABELA..."
+            HTTP_STATUS=$(curl -s -w "%{http_code}" \
+              -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+              "${{ secrets.SUPABASE_URL }}/rest/v1/${TABELA}?select=*" \
+              -o "backup/$DATE/${TABELA}.json")
+
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "✓ Tabela $TABELA exportada com sucesso."
+            else
+              echo "⚠️ Aviso: Tabela $TABELA retornou status HTTP $HTTP_STATUS."
+            fi
+          done
+
+      - name: Clonar repositório privado de backups
+        uses: actions/checkout@v4
+        with:
+          repository: heduardowitkoski/odessa-macedo-backups
+          token: ${{ secrets.BACKUP_REPO_TOKEN }}
+          path: backup-repo
+
+      - name: Sincronizar e commitar backup
+        run: |
+          cp -r backup/* backup-repo/
+          cd backup-repo
+          git config user.name "Odessa Backup Bot"
+          git config user.email "backup-bot@odessamacedo.local"
+          git add .
+          git diff --cached --quiet || git commit -m "chore(backup): backup automatizado $DATA_BACKUP"
+          git push origin main
+
