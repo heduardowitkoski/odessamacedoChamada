@@ -753,57 +753,72 @@ export default function ProfessorPortal() {
         {activeTab === 'frequencia' && (
           <div className="space-y-6">
             {/* Card de Controle da Chamada */}
-            <div className="bg-white rounded-3xl border border-amber-100 shadow-xs p-4 sm:p-6">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="bg-white rounded-3xl border border-amber-100 shadow-xs p-4 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-lg text-[#1C1300]">
                     Realizar Chamada de Aula
                   </h2>
                   <p className="text-gray-500 text-xs mt-0.5">
-                    Selecione a turma e a data para registrar as presenças, faltas e justificativas dos alunos
+                    Toque na turma abaixo e registre presenças e faltas rapidamente pelo celular
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-500 mb-1">Turma:</label>
-                    <select
-                      value={selectedTurmaId}
-                      onChange={(e) => setSelectedTurmaId(e.target.value)}
-                      className="bg-gray-50 border border-gray-200 text-xs font-semibold rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    >
-                      {turmas.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.nome} ({t.turno})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-500 mb-1">Data da Aula:</label>
-                    <DatePickerBR
-                      value={selectedData}
-                      onChange={(val) => setSelectedData(val)}
-                      className="bg-gray-50 border border-gray-200 text-xs font-semibold rounded-xl px-3 py-2 text-gray-800 focus-within:ring-2 focus-within:ring-blue-300 w-36"
-                    />
-                  </div>
-
-                    {editandoChamada && (
-                      <div className="self-end">
-                        <button
-                          onClick={handleMarcarTodosPresentes}
-                          className="px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Check size={14} /> Todos Presentes
-                        </button>
-                      </div>
-                    )}
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <label className="text-xs font-bold text-gray-600">Data:</label>
+                  <DatePickerBR
+                    value={selectedData}
+                    onChange={(val) => setSelectedData(val)}
+                    className="bg-gray-50 border border-gray-200 text-xs font-semibold rounded-xl px-3 py-2 text-gray-800 focus-within:ring-2 focus-within:ring-blue-300 w-36"
+                  />
                 </div>
               </div>
 
+              {/* Seletor Rápido de Turmas em Botões/Cards com Scroll Horizontal Mobile-First */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Escolha a Turma:
+                </label>
+                <div className="flex items-stretch gap-2.5 overflow-x-auto pb-2 pt-0.5 scrollbar-thin no-scrollbar -mx-1 px-1">
+                  {turmas.map((t) => {
+                    const isSelected = selectedTurmaId === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setSelectedTurmaId(t.id)}
+                        className={`flex-shrink-0 text-left p-3 rounded-2xl border transition-all cursor-pointer min-w-[150px] sm:min-w-[190px] ${
+                          isSelected
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20 scale-[1.02]'
+                            : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-800'
+                        }`}
+                      >
+                        <p className={`text-xs sm:text-sm font-bold truncate ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                          {t.nome.replace(' - Polo Pedro Wayne', '')}
+                        </p>
+                        <p className={`text-[11px] mt-0.5 font-medium line-clamp-1 ${isSelected ? 'text-blue-100' : 'text-gray-500'}`}>
+                          {t.turno}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {editandoChamada && (
+                <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-3">
+                  <span className="text-xs text-gray-500 font-medium">Ações rápidas:</span>
+                  <button
+                    onClick={handleMarcarTodosPresentes}
+                    className="px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Check size={14} /> Todos Presentes
+                  </button>
+                </div>
+              )}
+
               {saveSuccess && (
-                <div className="mt-4 p-3 bg-emerald-50 text-emerald-800 text-xs rounded-xl border border-emerald-200 flex items-center gap-2 animate-in fade-in">
+                <div className="p-3 bg-emerald-50 text-emerald-800 text-xs rounded-xl border border-emerald-200 flex items-center gap-2 animate-in fade-in">
                   <Check size={16} className="text-emerald-600" />
                   <span>Chamada registrada e sincronizada com sucesso!</span>
                 </div>
@@ -883,45 +898,48 @@ export default function ProfessorPortal() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
                         {editandoChamada ? (
                           <>
-                            {/* Status Buttons */}
-                            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                            {/* Status Buttons - Otimizados para toque no celular com botões largos e feedback visual imediato */}
+                            <div className="grid grid-cols-3 gap-1 bg-gray-100 p-1.5 rounded-2xl w-full sm:w-auto">
                               <button
                                 type="button"
                                 onClick={() => handleStatusChange(aluno.aluno_id, 'PRESENTE')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                className={`py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
                                   aluno.status === 'PRESENTE'
-                                    ? 'bg-emerald-500 text-white shadow-xs'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                    ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/50'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
                                 }`}
                               >
+                                <Check size={14} className={aluno.status === 'PRESENTE' ? 'inline' : 'hidden sm:inline opacity-40'} />
                                 Presente
                               </button>
 
                               <button
                                 type="button"
                                 onClick={() => handleStatusChange(aluno.aluno_id, 'FALTA')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                className={`py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
                                   aluno.status === 'FALTA'
-                                    ? 'bg-red-500 text-white shadow-xs'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                    ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-400/50'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
                                 }`}
                               >
+                                <X size={14} className={aluno.status === 'FALTA' ? 'inline' : 'hidden sm:inline opacity-40'} />
                                 Falta
                               </button>
 
                               <button
                                 type="button"
                                 onClick={() => handleStatusChange(aluno.aluno_id, 'JUSTIFICADA')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                className={`py-2 px-3 sm:px-4 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
                                   aluno.status === 'JUSTIFICADA'
-                                    ? 'bg-amber-500 text-white shadow-xs'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                    ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-400/50'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
                                 }`}
                               >
-                                Justificada
+                                <HelpCircle size={14} className={aluno.status === 'JUSTIFICADA' ? 'inline' : 'hidden sm:inline opacity-40'} />
+                                Justif.
                               </button>
                             </div>
 
@@ -931,34 +949,36 @@ export default function ProfessorPortal() {
                               placeholder="Observação da aula..."
                               value={aluno.observacao}
                               onChange={(e) => handleObsChange(aluno.aluno_id, e.target.value)}
-                              className="h-9 px-3 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-300 w-full sm:w-56"
+                              className="h-10 px-3.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 w-full sm:w-56"
                             />
                           </>
                         ) : (
                           <>
                             {/* Status Visual (Modo Leitura) */}
-                            <div className="flex items-center">
+                            <div className="flex items-center gap-2">
                               {aluno.status === 'PRESENTE' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                                  <Check size={12} /> Presente
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                  <Check size={13} /> Presente
                                 </span>
                               )}
                               {aluno.status === 'FALTA' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
-                                  <X size={12} /> Falta
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                                  <X size={13} /> Falta
                                 </span>
                               )}
                               {aluno.status === 'JUSTIFICADA' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                                  <HelpCircle size={12} /> Justificada
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                  <HelpCircle size={13} /> Justificada
+                                </span>
+                              )}
+
+                              {/* Observação (Modo Leitura) */}
+                              {aluno.observacao && (
+                                <span className="text-xs text-gray-500 italic max-w-xs truncate">
+                                  "{aluno.observacao}"
                                 </span>
                               )}
                             </div>
-
-                            {/* Observação (Modo Leitura) */}
-                            <span className="text-xs text-gray-500 italic max-w-xs truncate">
-                              {aluno.observacao || 'Sem observações'}
-                            </span>
                           </>
                         )}
 
@@ -966,10 +986,10 @@ export default function ProfessorPortal() {
                         <button
                           type="button"
                           onClick={() => setSelectedStudentId(aluno.aluno_id)}
-                          className="p-2 text-gray-400 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+                          className="self-end sm:self-center p-2 text-gray-400 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
                           title="Ver todas as faltas e histórico do aluno"
                         >
-                          <FileText size={16} />
+                          <FileText size={18} />
                         </button>
                       </div>
                     </div>
