@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 
 interface DatePickerProps {
   value: string; // formato YYYY-MM-DD
@@ -21,7 +21,9 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
   min,
   max,
 }) => {
-  // Formata YYYY-MM-DD para DD/MM/AAAA para exibição
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Formata YYYY-MM-DD → DD/MM/AAAA para exibição
   const formatIsoToBr = (iso: string): string => {
     if (!iso) return '';
     const parts = iso.split('-');
@@ -36,22 +38,44 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
 
   const displayValue = formatIsoToBr(value);
 
+  // Abre o picker de data ao clicar em qualquer lugar da área
+  const handleClick = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    // showPicker() funciona no desktop (Chrome, Firefox, Edge modernos).
+    // No mobile, o próprio clique no input overlay já abre o picker nativo.
+    if (typeof (el as any).showPicker === 'function') {
+      try {
+        (el as any).showPicker();
+      } catch {
+        el.focus();
+      }
+    } else {
+      el.focus();
+    }
+  };
+
   return (
     /*
-     * Estratégia mobile-first:
-     * O input nativo type="date" fica sobreposto por cima do texto exibido,
-     * completamente transparente (opacity-0), mas com largura/altura reais,
-     * assim qualquer toque na área abre o seletor de data nativo do sistema
-     * tanto no iOS Safari quanto no Android Chrome.
+     * Layout: texto de exibição em DD/MM/AAAA + input nativo invisível sobreposto.
+     * - Mobile: o toque cai direto no input overlay (opacity-0), abrindo o picker nativo.
+     * - Desktop: o onClick do wrapper chama showPicker() explicitamente.
      */
-    <div className={`relative flex items-center ${className}`}>
-      {/* Texto de exibição no formato DD/MM/AAAA */}
-      <span className="pointer-events-none select-none w-full">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); }}
+      className={`relative flex items-center cursor-pointer select-none ${className}`}
+    >
+      {/* Texto exibido em formato brasileiro */}
+      <span className="pointer-events-none w-full">
         {displayValue || <span className="text-gray-400">DD/MM/AAAA</span>}
       </span>
 
-      {/* Input nativo sobreposto — recebe os toques e abre o picker nativo */}
+      {/* Input nativo transparente — recebe toques no mobile e é acionado via showPicker no desktop */}
       <input
+        ref={inputRef}
         type="date"
         id={id}
         name={name}
@@ -60,6 +84,7 @@ export const DatePickerBR: React.FC<DatePickerProps> = ({
         max={max}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={(e) => e.target.showPicker?.()}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         style={{ WebkitAppearance: 'none' }}
       />
